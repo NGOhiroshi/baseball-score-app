@@ -1,0 +1,32 @@
+# Claude Code 設定（個人ごとに異なる）
+.claude/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# 環境変数
+.env
+.env.local
+.env*.local
+
+# ログ
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# テスト
+coverage/
