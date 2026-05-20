@@ -83,7 +83,7 @@ Game（集約ルート / エンティティ）
 ├─ gameDate: Date
 ├─ opponentName: string
 ├─ inningScores: InningScore[]（値オブジェクト集合 ★ イニングごとのスコア）
-├─ battingOrder: BattingOrderEntry[]（エンティティ集合 / 1〜9 + 任意の追加）
+├─ battingOrder: BattingOrderEntry[]（エンティティ集合 / **1〜n、参加人数分**。上限なし）
 ├─ plateAppearances: PlateAppearance[]（エンティティ集合）
 └─ pitchingAppearances: PitchingAppearance[]（エンティティ集合）
 ```
@@ -113,7 +113,7 @@ finalScore(): Score {
 
 ```
 BattingOrderEntry
-├─ orderNumber: number（1〜9、または1〜n）
+├─ orderNumber: number（1以上、上限なし — 参加人数分）
 ├─ playerId: PlayerId（メンバーID or 助っ人ID）
 └─ position: FielderPosition | null（任意）
 ```
@@ -325,7 +325,7 @@ class InningsPitched {
 | `PlateAppearanceId` | UUID | 同上 |
 | `PitchingAppearanceId` | UUID | 同上 |
 | `PlayerId` | `MemberId \| GuestPlayerId` の合成型 | どちらかの選手IDを指す |
-| `BattingDirection` | 列挙型（左前/中前/右前/左中間/右中間/左越/中越/右越） | この値のみ許容 |
+| `BattingDirection` | 列挙型 `'left' \| 'center' \| 'right' \| 'infield'`（左/中/右/内野の4分類） | この値のみ許容 |
 | `FielderPosition` | 1〜9 の数値 | 範囲外不可 |
 
 ---
