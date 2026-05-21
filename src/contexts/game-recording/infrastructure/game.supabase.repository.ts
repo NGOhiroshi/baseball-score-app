@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { GuestPlayerId } from "@/contexts/team-management/domain/guest-player-id";
 import type { MemberId } from "@/contexts/team-management/domain/member-id";
 import type { TeamId } from "@/contexts/team-management/domain/team-id";
 import { BattingOrderEntry } from "../domain/batting-order-entry";
@@ -15,7 +16,6 @@ import {
   asMemberId,
   guestPlayerId,
   memberPlayerId,
-  type GuestPlayerIdBrand,
   type PlayerId,
 } from "../domain/player-id";
 
@@ -146,7 +146,7 @@ export class GameSupabaseRepository implements GameRepository {
     if (row.member_id) {
       playerId = memberPlayerId(row.member_id as MemberId);
     } else if (row.guest_player_id) {
-      playerId = guestPlayerId(row.guest_player_id as GuestPlayerIdBrand);
+      playerId = guestPlayerId(row.guest_player_id as GuestPlayerId);
     } else {
       throw new Error(
         `打順エントリにメンバーも助っ人も紐づいていません: ${row.id}`,

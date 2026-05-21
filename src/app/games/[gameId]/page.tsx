@@ -4,14 +4,18 @@ import { createClient } from "@/lib/supabase/server";
 import { GetGameUseCase } from "@/contexts/game-recording/application/get-game.usecase";
 import { GameSupabaseRepository } from "@/contexts/game-recording/infrastructure/game.supabase.repository";
 import { ListMembersUseCase } from "@/contexts/team-management/application/list-members.usecase";
+import { ListGuestPlayersUseCase } from "@/contexts/team-management/application/list-guest-players.usecase";
 import { MemberSupabaseRepository } from "@/contexts/team-management/infrastructure/member.supabase.repository";
-import {
-  FIELDER_POSITION_LABELS,
-} from "@/contexts/game-recording/domain/fielder-position";
+import { GuestPlayerSupabaseRepository } from "@/contexts/team-management/infrastructure/guest-player.supabase.repository";
+import { FIELDER_POSITION_LABELS } from "@/contexts/game-recording/domain/fielder-position";
 import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-id";
 import type { GameId } from "@/contexts/game-recording/domain/game-id";
 import type { MemberId } from "@/contexts/team-management/domain/member-id";
-import { asMemberId } from "@/contexts/game-recording/domain/player-id";
+import type { GuestPlayerId } from "@/contexts/team-management/domain/guest-player-id";
+import {
+  asGuestPlayerId,
+  asMemberId,
+} from "@/contexts/game-recording/domain/player-id";
 
 /**
  * 試合詳細画面（UC-GAME-6 の Slice 2 部分）。
@@ -29,15 +33,21 @@ export default async function GameDetailPage({
   const gameRepo = new GameSupabaseRepository(supabase);
   const memberRepo = new MemberSupabaseRepository(supabase);
 
+  const guestRepo = new GuestPlayerSupabaseRepository(supabase);
+
   const game = await new GetGameUseCase(gameRepo).execute(gameId as GameId);
   if (!game) notFound();
 
-  // 打順表示用にメンバーを取得して name 解決
-  const members = await new ListMembersUseCase(memberRepo).execute(
-    SMITH_BROTHERS_TEAM_ID,
-  );
+  // 打順表示用にメンバーと助っ人を取得して名前解決
+  const [members, guests] = await Promise.all([
+    new ListMembersUseCase(memberRepo).execute(SMITH_BROTHERS_TEAM_ID),
+    new ListGuestPlayersUseCase(guestRepo).execute(SMITH_BROTHERS_TEAM_ID),
+  ]);
   const memberNameById = new Map<MemberId, string>(
     members.map((m) => [m.id, m.name]),
+  );
+  const guestNameById = new Map<GuestPlayerId, string>(
+    guests.map((g) => [g.id, g.name]),
   );
 
   return (
@@ -84,9 +94,13 @@ export default async function GameDetailPage({
           <ol className="mt-4 space-y-1">
             {game.battingOrder.map((entry) => {
               const memberId = asMemberId(entry.playerId);
+              const guestId = asGuestPlayerId(entry.playerId);
               const name = memberId
                 ? (memberNameById.get(memberId) ?? "(不明なメンバー)")
-                : "(助っ人)";
+                : guestId
+                  ? (guestNameById.get(guestId) ?? "(不明な助っ人)")
+                  : "(不明)";
+              const isGuest = guestId !== null;
               const posLabel = entry.position
                 ? FIELDER_POSITION_LABELS[entry.position]
                 : "-";
@@ -98,7 +112,14 @@ export default async function GameDetailPage({
                   <span className="w-8 font-mono text-muted-foreground">
                     {entry.orderNumber}番
                   </span>
-                  <span className="flex-1 font-medium">{name}</span>
+                  <span className="flex-1 font-medium">
+                    {name}
+                    {isGuest && (
+                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                        助っ人
+                      </span>
+                    )}
+                  </span>
                   <span className="w-12 text-center text-xs text-muted-foreground">
                     {posLabel}
                   </span>
