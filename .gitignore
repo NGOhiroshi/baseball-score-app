@@ -1,6 +1,15 @@
 # Claude Code 設定（個人ごとに異なる）
 .claude/
 
+# pnpm
+.pnpm-store/
+
+# Next.js ビルド出力
+.next/
+out/
+next-env.d.ts.tsbuildinfo
+*.tsbuildinfo
+
 # Node
 node_modules/
 .next/
