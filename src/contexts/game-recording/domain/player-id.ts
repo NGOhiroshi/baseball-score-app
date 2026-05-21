@@ -39,3 +39,13 @@ export function asMemberId(playerId: PlayerId): MemberId | null {
 export function asGuestPlayerId(playerId: PlayerId): GuestPlayerId | null {
   return playerId.kind === "guest" ? playerId.id : null;
 }
+
+/** 2つの PlayerId が同一選手を指すか */
+export function samePlayer(a: PlayerId, b: PlayerId): boolean {
+  return a.kind === b.kind && a.id === b.id;
+}
+
+/** 表示・比較用の一意キー文字列（"member:UUID" / "guest:UUID"） */
+export function playerKey(playerId: PlayerId): string {
+  return `${playerId.kind}:${playerId.id}`;
+}

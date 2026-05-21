@@ -4,6 +4,8 @@ import type { MemberId } from "@/contexts/team-management/domain/member-id";
 import type { TeamId } from "@/contexts/team-management/domain/team-id";
 import { BattingOrderEntry } from "../domain/batting-order-entry";
 import type { BattingOrderEntryId } from "../domain/batting-order-entry-id";
+import type { BatResult } from "../domain/bat-result";
+import { isBattingDirection } from "../domain/batting-direction";
 import {
   isFielderPosition,
   type FielderPosition,
@@ -11,11 +13,14 @@ import {
 import { Game } from "../domain/game";
 import type { GameId } from "../domain/game-id";
 import type { GameRepository } from "../domain/game.repository";
+import { PlateAppearance } from "../domain/plate-appearance";
+import type { PlateAppearanceId } from "../domain/plate-appearance-id";
 import {
   asGuestPlayerId,
   asMemberId,
   guestPlayerId,
   memberPlayerId,
+  playerKey,
   type PlayerId,
 } from "../domain/player-id";
 
@@ -33,6 +38,25 @@ type BattingOrderRow = {
   member_id: string | null;
   guest_player_id: string | null;
   position: number | null;
+};
+
+type PlateAppearanceRow = {
+  id: string;
+  game_id: string;
+  member_id: string | null;
+  guest_player_id: string | null;
+  inning: number;
+  sequence_in_inning: number;
+  result_category: string;
+  hit_type: string | null;
+  walk_type: string | null;
+  out_type: string | null;
+  sacrifice_type: string | null;
+  had_error: boolean;
+  batting_direction: string | null;
+  fielder_position: number | null;
+  runs_batted_in: number;
+  run_scored: boolean;
 };
 
 /**
@@ -85,6 +109,43 @@ export class GameSupabaseRepository implements GameRepository {
         throw new Error(`打順の保存に失敗しました: ${insErr.message}`);
       }
     }
+
+    // 4) plate_appearances を一旦全削除
+    const { error: paDelErr } = await this.supabase
+      .from("plate_appearances")
+      .delete()
+      .eq("game_id", game.id);
+    if (paDelErr) {
+      throw new Error(`打席結果の削除に失敗しました: ${paDelErr.message}`);
+    }
+
+    // 5) 打席結果を挿入（あれば）
+    if (game.plateAppearances.length > 0) {
+      // 同一(選手, イニング)内の打席順を sequence_in_inning として採番
+      const seqCounter = new Map<string, number>();
+      const rows = game.plateAppearances.map((pa) => {
+        const key = `${playerKey(pa.playerId)}#${pa.inning}`;
+        const seq = (seqCounter.get(key) ?? 0) + 1;
+        seqCounter.set(key, seq);
+        return {
+          id: pa.id,
+          game_id: game.id,
+          member_id: asMemberId(pa.playerId),
+          guest_player_id: asGuestPlayerId(pa.playerId),
+          inning: pa.inning,
+          sequence_in_inning: seq,
+          runs_batted_in: pa.runsBattedIn,
+          run_scored: pa.runScored,
+          ...batResultToColumns(pa.result),
+        };
+      });
+      const { error: paInsErr } = await this.supabase
+        .from("plate_appearances")
+        .insert(rows);
+      if (paInsErr) {
+        throw new Error(`打席結果の保存に失敗しました: ${paInsErr.message}`);
+      }
+    }
   }
 
   async findAllByTeam(teamId: TeamId): Promise<Game[]> {
@@ -104,6 +165,7 @@ export class GameSupabaseRepository implements GameRepository {
         gameDate: new Date(row.game_date),
         opponentName: row.opponent_name,
         battingOrder: [],
+        plateAppearances: [],
       }),
     );
   }
@@ -132,12 +194,26 @@ export class GameSupabaseRepository implements GameRepository {
       this.toBattingOrderEntry(row as BattingOrderRow),
     );
 
+    const { data: paRows, error: paErr } = await this.supabase
+      .from("plate_appearances")
+      .select("*")
+      .eq("game_id", id)
+      .order("inning", { ascending: true })
+      .order("sequence_in_inning", { ascending: true });
+    if (paErr) {
+      throw new Error(`打席結果の取得に失敗しました: ${paErr.message}`);
+    }
+    const plateAppearances = (paRows ?? []).map((row) =>
+      this.toPlateAppearance(row as PlateAppearanceRow),
+    );
+
     return Game.restore({
       id: gameRow.id as GameId,
       teamId: gameRow.team_id as TeamId,
       gameDate: new Date(gameRow.game_date),
       opponentName: gameRow.opponent_name,
       battingOrder,
+      plateAppearances,
     });
   }
 
@@ -167,6 +243,127 @@ export class GameSupabaseRepository implements GameRepository {
       playerId,
       position,
     });
+  }
+
+  private toPlateAppearance(row: PlateAppearanceRow): PlateAppearance {
+    let playerId: PlayerId;
+    if (row.member_id) {
+      playerId = memberPlayerId(row.member_id as MemberId);
+    } else if (row.guest_player_id) {
+      playerId = guestPlayerId(row.guest_player_id as GuestPlayerId);
+    } else {
+      throw new Error(
+        `打席結果にメンバーも助っ人も紐づいていません: ${row.id}`,
+      );
+    }
+
+    return PlateAppearance.restore({
+      id: row.id as PlateAppearanceId,
+      playerId,
+      inning: row.inning,
+      result: columnsToBatResult(row),
+      runsBattedIn: row.runs_batted_in,
+      runScored: row.run_scored,
+    });
+  }
+}
+
+// =========================================================================
+// BatResult ↔ DB カラム の変換
+//   ドメインの判別共用体と、plate_appearances テーブルのフラットな
+//   カラム群との橋渡し。インフラ層の責務。
+// =========================================================================
+
+type BatResultColumns = {
+  result_category: string;
+  hit_type: string | null;
+  walk_type: string | null;
+  out_type: string | null;
+  sacrifice_type: string | null;
+  had_error: boolean;
+  batting_direction: string | null;
+  fielder_position: number | null;
+};
+
+function batResultToColumns(result: BatResult): BatResultColumns {
+  const base: BatResultColumns = {
+    result_category: result.category,
+    hit_type: null,
+    walk_type: null,
+    out_type: null,
+    sacrifice_type: null,
+    had_error: false,
+    batting_direction: null,
+    fielder_position: null,
+  };
+  switch (result.category) {
+    case "hit":
+      return {
+        ...base,
+        hit_type: result.hitType,
+        batting_direction: result.direction,
+        had_error: result.hadError,
+      };
+    case "walk":
+      return { ...base, walk_type: result.walkType };
+    case "out":
+      return {
+        ...base,
+        out_type: result.outType,
+        fielder_position: result.fielderPosition,
+      };
+    case "sacrifice":
+      return {
+        ...base,
+        sacrifice_type: result.sacrificeType,
+        fielder_position: result.fielderPosition,
+      };
+    case "errorOnly":
+      return { ...base, fielder_position: result.fielderPosition };
+  }
+}
+
+function columnsToBatResult(row: PlateAppearanceRow): BatResult {
+  const direction =
+    row.batting_direction && isBattingDirection(row.batting_direction)
+      ? row.batting_direction
+      : null;
+  const fielderPosition =
+    row.fielder_position !== null && isFielderPosition(row.fielder_position)
+      ? row.fielder_position
+      : null;
+
+  switch (row.result_category) {
+    case "hit":
+      return {
+        category: "hit",
+        hitType: row.hit_type as "single" | "double" | "triple" | "homerun",
+        direction,
+        hadError: row.had_error,
+      };
+    case "walk":
+      return {
+        category: "walk",
+        walkType: row.walk_type as "baseOnBalls" | "hitByPitch",
+      };
+    case "out":
+      return {
+        category: "out",
+        outType: row.out_type as "strikeout" | "groundOut" | "flyOut",
+        fielderPosition,
+      };
+    case "sacrifice":
+      return {
+        category: "sacrifice",
+        sacrificeType: row.sacrifice_type as "bunt" | "fly",
+        fielderPosition,
+      };
+    case "errorOnly":
+      return { category: "errorOnly", fielderPosition };
+    default:
+      throw new Error(
+        `不正な打席結果カテゴリが保存されています: ${row.result_category}`,
+      );
   }
 }
 

@@ -1,6 +1,9 @@
 import type { TeamId } from "@/contexts/team-management/domain/team-id";
 import type { BattingOrderEntry } from "./batting-order-entry";
 import { newGameId, type GameId } from "./game-id";
+import type { PlateAppearance } from "./plate-appearance";
+import type { PlateAppearanceId } from "./plate-appearance-id";
+import { samePlayer, type PlayerId } from "./player-id";
 
 const MAX_OPPONENT_LENGTH = 50;
 
@@ -24,6 +27,7 @@ export class Game {
     readonly gameDate: Date,
     readonly opponentName: string,
     private _battingOrder: readonly BattingOrderEntry[],
+    private _plateAppearances: readonly PlateAppearance[],
   ) {
     if (opponentName.trim() === "") {
       throw new Error("対戦相手名は必須です");
@@ -35,7 +39,7 @@ export class Game {
     }
   }
 
-  /** 新規試合の作成（打順は空からスタート） */
+  /** 新規試合の作成（打順・打席は空からスタート） */
   static create(params: {
     teamId: TeamId;
     gameDate: Date;
@@ -47,6 +51,7 @@ export class Game {
       params.gameDate,
       params.opponentName.trim(),
       [],
+      [],
     );
   }
 
@@ -57,6 +62,7 @@ export class Game {
     gameDate: Date;
     opponentName: string;
     battingOrder: readonly BattingOrderEntry[];
+    plateAppearances: readonly PlateAppearance[];
   }): Game {
     return new Game(
       params.id,
@@ -64,12 +70,18 @@ export class Game {
       params.gameDate,
       params.opponentName,
       params.battingOrder,
+      params.plateAppearances,
     );
   }
 
   /** 打順は読み取り専用で外に公開（変更は専用メソッド経由） */
   get battingOrder(): readonly BattingOrderEntry[] {
     return this._battingOrder;
+  }
+
+  /** 打席結果は読み取り専用で外に公開（変更は専用メソッド経由） */
+  get plateAppearances(): readonly PlateAppearance[] {
+    return this._plateAppearances;
   }
 
   /**
@@ -96,5 +108,42 @@ export class Game {
     this._battingOrder = [...entries].sort(
       (a, b) => a.orderNumber - b.orderNumber,
     );
+  }
+
+  /**
+   * 打席結果を追加する。
+   *
+   * 集約の不変条件:
+   *   打席結果は「打順に登録された選手」にのみ記録できる。
+   *   （打順にいない選手の打席はあり得ない）
+   */
+  addPlateAppearance(pa: PlateAppearance): void {
+    if (!this.isPlayerInBattingOrder(pa.playerId)) {
+      throw new Error(
+        "打席結果は打順に登録された選手にのみ記録できます",
+      );
+    }
+    this._plateAppearances = [...this._plateAppearances, pa];
+  }
+
+  /** 打席結果を削除する */
+  removePlateAppearance(id: PlateAppearanceId): void {
+    this._plateAppearances = this._plateAppearances.filter(
+      (pa) => pa.id !== id,
+    );
+  }
+
+  /**
+   * 指定した打席の「得点したか」フラグを更新する。
+   * 出塁後にホームインしたことを後から記録するためのピンポイント更新。
+   */
+  setRunScored(id: PlateAppearanceId, runScored: boolean): void {
+    this._plateAppearances = this._plateAppearances.map((pa) =>
+      pa.id === id ? pa.withRunScored(runScored) : pa,
+    );
+  }
+
+  private isPlayerInBattingOrder(playerId: PlayerId): boolean {
+    return this._battingOrder.some((e) => samePlayer(e.playerId, playerId));
   }
 }
