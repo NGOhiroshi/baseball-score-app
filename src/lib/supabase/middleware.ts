@@ -33,21 +33,17 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // 必ず getUser() を呼ぶこと（セッション更新のため）
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 必ず getUser() を呼ぶこと（Cookie セッションのリフレッシュのため）
+  await supabase.auth.getUser();
 
-  // 未ログインの場合、/login 以外のすべてのパスを /login にリダイレクト
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth")
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  // TODO(Phase 1-D Slice X): 認証スライスで /login への自動リダイレクトを復活させる。
+  // 現時点（Slice 1）では auth フロー未実装のため、未ログインでもアクセスできるようにしておく。
+  // ↓ 元のコード（参考）:
+  //   if (!user && !request.nextUrl.pathname.startsWith("/login") && !request.nextUrl.pathname.startsWith("/auth")) {
+  //     const url = request.nextUrl.clone();
+  //     url.pathname = "/login";
+  //     return NextResponse.redirect(url);
+  //   }
 
   return supabaseResponse;
 }
