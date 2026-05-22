@@ -7,7 +7,7 @@ export default function HomePage() {
         ⚾ 草野球スコア管理アプリ
       </h1>
       <p className="mt-4 text-muted-foreground">
-        Phase 1-D Slice 1: メンバー登録・一覧 実装中
+        スミスブラザーズのスコア・成績を記録します
       </p>
 
       <nav className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -32,10 +32,13 @@ export default function HomePage() {
           <div className="text-2xl">📊</div>
           <div className="mt-2 text-sm font-medium">成績</div>
         </Link>
-        <div className="rounded-lg border bg-card p-6 text-center opacity-50">
+        <Link
+          href="/settings"
+          className="rounded-lg border bg-card p-6 text-center transition-colors hover:bg-accent"
+        >
           <div className="text-2xl">⚙️</div>
-          <div className="mt-2 text-sm font-medium">設定（未実装）</div>
-        </div>
+          <div className="mt-2 text-sm font-medium">設定</div>
+        </Link>
       </nav>
     </main>
   );

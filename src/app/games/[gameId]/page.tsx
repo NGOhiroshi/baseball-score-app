@@ -19,16 +19,13 @@ import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-i
 import type { GameId } from "@/contexts/game-recording/domain/game-id";
 import type { MemberId } from "@/contexts/team-management/domain/member-id";
 import type { GuestPlayerId } from "@/contexts/team-management/domain/guest-player-id";
-import {
-  ScoreSheet,
-  type PlayerRow,
-} from "./plate-appearances/ScoreSheet";
+import type { PlayerRow } from "./plate-appearances/ScoreSheet";
 import { ScoreBoard } from "./inning-scores/ScoreBoard";
-import {
-  PitchingSection,
-  type PitchingView,
-  type PitcherOption,
+import type {
+  PitchingView,
+  PitcherOption,
 } from "./pitching/PitchingSection";
+import { GameTabs } from "./GameTabs";
 
 /**
  * 試合詳細画面（UC-GAME-6）。
@@ -167,47 +164,13 @@ export default async function GameDetailPage({
       </section>
 
       <section className="mt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">打順・打席結果</h2>
-          <Link
-            href={`/games/${game.id}/batting-order`}
-            className="rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-          >
-            {game.battingOrder.length === 0 ? "+ 打順を登録" : "✏️ 打順編集"}
-          </Link>
-        </div>
-
-        {game.battingOrder.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            まだ打順が登録されていません。先に打順を登録してください。
-          </p>
-        ) : (
-          <ScoreSheet gameId={game.id} players={players} />
-        )}
-      </section>
-
-      <section className="mt-6">
-        <h2 className="text-lg font-semibold">投手記録</h2>
-        {game.battingOrder.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            先に打順を登録すると投手を記録できます。
-          </p>
-        ) : (
-          <div className="mt-4">
-            <PitchingSection
-              gameId={game.id}
-              pitcherOptions={pitcherOptions}
-              appearances={pitchingViews}
-            />
-          </div>
-        )}
-      </section>
-
-      <section className="mt-8 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-        <h3 className="font-semibold text-foreground">未実装の機能</h3>
-        <ul className="mt-2 space-y-1">
-          <li>⏳ 成績集計（Slice 5）</li>
-        </ul>
+        <GameTabs
+          gameId={game.id}
+          hasBattingOrder={game.battingOrder.length > 0}
+          players={players}
+          pitcherOptions={pitcherOptions}
+          pitchingViews={pitchingViews}
+        />
       </section>
     </main>
   );

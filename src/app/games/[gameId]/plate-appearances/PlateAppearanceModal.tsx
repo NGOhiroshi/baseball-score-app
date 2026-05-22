@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { NumberField } from "@/components/NumberField";
 import { recordPlateAppearanceAction } from "./actions";
 import { BATTING_DIRECTION_LABELS } from "@/contexts/game-recording/domain/batting-direction";
 import { FIELDER_POSITION_LABELS } from "@/contexts/game-recording/domain/fielder-position";
@@ -104,13 +105,16 @@ export function PlateAppearanceModal({
         {/* イニング */}
         <div className="mt-4">
           <label className="block text-sm font-medium">イニング</label>
-          <input
-            type="number"
-            min={1}
-            value={inning}
-            onChange={(e) => setInning(Number(e.target.value))}
-            className="mt-1 w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-          />
+          <div className="mt-1">
+            <NumberField
+              value={inning}
+              onChange={setInning}
+              min={1}
+              stepper
+              ariaLabel="イニング"
+              className="w-16"
+            />
+          </div>
         </div>
 
         {/* 大分類 */}
@@ -234,13 +238,16 @@ export function PlateAppearanceModal({
           <div className="mt-4 space-y-3 border-t pt-4">
             <div>
               <label className="block text-sm font-medium">打点</label>
-              <input
-                type="number"
-                min={0}
-                value={runsBattedIn}
-                onChange={(e) => setRunsBattedIn(Number(e.target.value))}
-                className="mt-1 w-24 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-              />
+              <div className="mt-1">
+                <NumberField
+                  value={runsBattedIn}
+                  onChange={setRunsBattedIn}
+                  min={0}
+                  stepper
+                  ariaLabel="打点"
+                  className="w-16"
+                />
+              </div>
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input

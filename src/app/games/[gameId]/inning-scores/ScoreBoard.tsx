@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import { NumberField } from "@/components/NumberField";
 import { setBatsFirstAction, updateInningScoresAction } from "./actions";
 
 export type InningScoreView = {
@@ -100,7 +101,7 @@ export function ScoreBoard({
   };
 
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-lg border border-green-950 bg-green-900 p-4 text-green-50 shadow-inner">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">スコアボード</h2>
         {!isEditing ? (
@@ -134,7 +135,7 @@ export function ScoreBoard({
 
       {/* 先攻/後攻トグル */}
       <div className="mt-2 flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">自軍:</span>
+        <span className="text-green-200">自軍:</span>
         <button
           type="button"
           onClick={handleToggleBatsFirst}
@@ -152,14 +153,14 @@ export function ScoreBoard({
       )}
 
       {display.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-green-200">
           まだスコアが入力されていません。
         </p>
       ) : (
         <div className="mt-4 overflow-x-auto">
           <table className="text-center text-sm">
             <thead>
-              <tr className="text-muted-foreground">
+              <tr className="text-green-300">
                 <th className="px-2 py-1 text-left font-normal"> </th>
                 {display.map((r) => (
                   <th
@@ -169,7 +170,7 @@ export function ScoreBoard({
                     {r.inningNumber}
                   </th>
                 ))}
-                <th className="w-12 px-2 py-1 font-semibold text-foreground">
+                <th className="w-12 px-2 py-1 font-semibold text-green-50">
                   計
                 </th>
                 <th className="w-8 px-1 py-1"> </th>
@@ -255,17 +256,17 @@ function ScoreRow({
 }) {
   const total = rows.reduce((s, r) => s + (r[field] || 0), 0);
   return (
-    <tr className="border-t">
+    <tr className="border-t border-green-700">
       <td className="px-2 py-1 text-left font-medium">{label}</td>
       {rows.map((r, idx) => (
         <td key={r.inningNumber} className="px-1 py-1">
           {isEditing ? (
-            <input
-              type="number"
-              min={0}
+            <NumberField
               value={r[field]}
-              onChange={(e) => onChange(idx, field, Number(e.target.value))}
-              className="w-9 rounded border border-input bg-background px-1 py-0.5 text-center text-sm"
+              onChange={(v) => onChange(idx, field, v)}
+              min={0}
+              ariaLabel={`${label} ${r.inningNumber}回`}
+              className="w-10"
             />
           ) : (
             <span>{r[field]}</span>

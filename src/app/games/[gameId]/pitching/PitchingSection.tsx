@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { NumberField } from "@/components/NumberField";
 import {
   recordPitchingAppearanceAction,
   updatePitchingInningsAction,
@@ -108,13 +109,16 @@ export function PitchingSection({
             </div>
             <div>
               <label className="block text-xs font-medium">登板開始イニング</label>
-              <input
-                type="number"
-                min={1}
-                value={enteredAtInning}
-                onChange={(e) => setEnteredAtInning(Number(e.target.value))}
-                className="mt-1 w-20 rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-              />
+              <div className="mt-1">
+                <NumberField
+                  value={enteredAtInning}
+                  onChange={setEnteredAtInning}
+                  min={1}
+                  stepper
+                  ariaLabel="登板開始イニング"
+                  className="w-14"
+                />
+              </div>
             </div>
             <button
               type="button"
@@ -427,12 +431,11 @@ function NumCell({
   onChange: (v: number) => void;
 }) {
   return (
-    <input
-      type="number"
-      min={min}
+    <NumberField
       value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="w-10 rounded border border-input bg-background px-1 py-0.5 text-center text-xs"
+      onChange={onChange}
+      min={min}
+      className="w-11"
     />
   );
 }
