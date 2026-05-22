@@ -23,6 +23,7 @@ import {
   ScoreSheet,
   type PlayerRow,
 } from "./plate-appearances/ScoreSheet";
+import { ScoreBoard } from "./inning-scores/ScoreBoard";
 
 /**
  * 試合詳細画面（UC-GAME-6）。
@@ -110,6 +111,18 @@ export default async function GameDetailPage({
       </header>
 
       <section className="mt-6">
+        <ScoreBoard
+          gameId={game.id}
+          batsFirst={game.batsFirst}
+          initialScores={game.inningScores.map((s) => ({
+            inningNumber: s.inningNumber,
+            ourScore: s.ourScore,
+            opponentScore: s.opponentScore,
+          }))}
+        />
+      </section>
+
+      <section className="mt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">打順・打席結果</h2>
           <Link
@@ -132,7 +145,6 @@ export default async function GameDetailPage({
       <section className="mt-8 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
         <h3 className="font-semibold text-foreground">未実装の機能</h3>
         <ul className="mt-2 space-y-1">
-          <li>⏳ イニングスコア / 最終スコア表示（Slice 3.5）</li>
           <li>⏳ 投手記録（Slice 4）</li>
           <li>⏳ 成績集計（Slice 5）</li>
         </ul>

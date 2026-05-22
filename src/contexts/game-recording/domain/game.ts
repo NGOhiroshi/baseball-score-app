@@ -1,9 +1,11 @@
 import type { TeamId } from "@/contexts/team-management/domain/team-id";
 import type { BattingOrderEntry } from "./batting-order-entry";
 import { newGameId, type GameId } from "./game-id";
+import type { InningScore } from "./inning-score";
 import type { PlateAppearance } from "./plate-appearance";
 import type { PlateAppearanceId } from "./plate-appearance-id";
 import { samePlayer, type PlayerId } from "./player-id";
+import { Score } from "./score";
 
 const MAX_OPPONENT_LENGTH = 50;
 
@@ -28,6 +30,8 @@ export class Game {
     readonly opponentName: string,
     private _battingOrder: readonly BattingOrderEntry[],
     private _plateAppearances: readonly PlateAppearance[],
+    private _inningScores: readonly InningScore[],
+    private _batsFirst: boolean,
   ) {
     if (opponentName.trim() === "") {
       throw new Error("対戦相手名は必須です");
@@ -52,6 +56,8 @@ export class Game {
       params.opponentName.trim(),
       [],
       [],
+      [],
+      true, // デフォルトは先攻
     );
   }
 
@@ -63,6 +69,8 @@ export class Game {
     opponentName: string;
     battingOrder: readonly BattingOrderEntry[];
     plateAppearances: readonly PlateAppearance[];
+    inningScores: readonly InningScore[];
+    batsFirst: boolean;
   }): Game {
     return new Game(
       params.id,
@@ -71,6 +79,8 @@ export class Game {
       params.opponentName,
       params.battingOrder,
       params.plateAppearances,
+      params.inningScores,
+      params.batsFirst,
     );
   }
 
@@ -145,5 +155,52 @@ export class Game {
 
   private isPlayerInBattingOrder(playerId: PlayerId): boolean {
     return this._battingOrder.some((e) => samePlayer(e.playerId, playerId));
+  }
+
+  /** イニングスコアは読み取り専用で外に公開（変更は専用メソッド経由） */
+  get inningScores(): readonly InningScore[] {
+    return this._inningScores;
+  }
+
+  /**
+   * イニングスコアをまるごと差し替える。
+   *
+   * 集約の不変条件:
+   *   イニング番号が重複しない（空は許容＝まだスコア未入力の試合）
+   */
+  replaceInningScores(scores: readonly InningScore[]): void {
+    const nums = scores.map((s) => s.inningNumber);
+    if (new Set(nums).size !== nums.length) {
+      throw new Error("イニング番号が重複しています");
+    }
+    this._inningScores = [...scores].sort(
+      (a, b) => a.inningNumber - b.inningNumber,
+    );
+  }
+
+  /**
+   * 最終スコアを **導出** する（状態として保持しない）。
+   *
+   * DDD的ポイント:
+   *   最終スコアを独立フィールドで持つと inningScores と不整合になり得る。
+   *   常にイニングスコアの合計から計算することで、二重保持による
+   *   バグを構造的に排除する（Single Source of Truth）。
+   */
+  finalScore(): Score {
+    const our = this._inningScores.reduce((sum, s) => sum + s.ourScore, 0);
+    const opponent = this._inningScores.reduce(
+      (sum, s) => sum + s.opponentScore,
+      0,
+    );
+    return new Score(our, opponent);
+  }
+
+  /** 自軍が先攻か（true=先攻/表、false=後攻/裏） */
+  get batsFirst(): boolean {
+    return this._batsFirst;
+  }
+
+  setBatsFirst(value: boolean): void {
+    this._batsFirst = value;
   }
 }

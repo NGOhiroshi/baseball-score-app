@@ -13,6 +13,7 @@ import {
 import { Game } from "../domain/game";
 import type { GameId } from "../domain/game-id";
 import type { GameRepository } from "../domain/game.repository";
+import { InningScore } from "../domain/inning-score";
 import { PlateAppearance } from "../domain/plate-appearance";
 import type { PlateAppearanceId } from "../domain/plate-appearance-id";
 import {
@@ -29,6 +30,7 @@ type GameRow = {
   team_id: string;
   game_date: string;
   opponent_name: string;
+  bats_first: boolean;
 };
 
 type BattingOrderRow = {
@@ -38,6 +40,14 @@ type BattingOrderRow = {
   member_id: string | null;
   guest_player_id: string | null;
   position: number | null;
+};
+
+type InningScoreRow = {
+  id: string;
+  game_id: string;
+  inning_number: number;
+  our_score: number;
+  opponent_score: number;
 };
 
 type PlateAppearanceRow = {
@@ -78,6 +88,7 @@ export class GameSupabaseRepository implements GameRepository {
       team_id: game.teamId,
       game_date: toDateOnly(game.gameDate),
       opponent_name: game.opponentName,
+      bats_first: game.batsFirst,
     });
     if (gameErr) {
       throw new Error(`試合の保存に失敗しました: ${gameErr.message}`);
@@ -146,6 +157,32 @@ export class GameSupabaseRepository implements GameRepository {
         throw new Error(`打席結果の保存に失敗しました: ${paInsErr.message}`);
       }
     }
+
+    // 6) inning_scores を一旦全削除
+    const { error: isDelErr } = await this.supabase
+      .from("inning_scores")
+      .delete()
+      .eq("game_id", game.id);
+    if (isDelErr) {
+      throw new Error(`イニングスコアの削除に失敗しました: ${isDelErr.message}`);
+    }
+
+    // 7) イニングスコアを挿入（あれば）。InningScore は値オブジェクトなので
+    //    id は持たず、DB側の DEFAULT gen_random_uuid() に任せる。
+    if (game.inningScores.length > 0) {
+      const rows = game.inningScores.map((s) => ({
+        game_id: game.id,
+        inning_number: s.inningNumber,
+        our_score: s.ourScore,
+        opponent_score: s.opponentScore,
+      }));
+      const { error: isInsErr } = await this.supabase
+        .from("inning_scores")
+        .insert(rows);
+      if (isInsErr) {
+        throw new Error(`イニングスコアの保存に失敗しました: ${isInsErr.message}`);
+      }
+    }
   }
 
   async findAllByTeam(teamId: TeamId): Promise<Game[]> {
@@ -166,6 +203,8 @@ export class GameSupabaseRepository implements GameRepository {
         opponentName: row.opponent_name,
         battingOrder: [],
         plateAppearances: [],
+        inningScores: [],
+        batsFirst: row.bats_first ?? true,
       }),
     );
   }
@@ -207,6 +246,19 @@ export class GameSupabaseRepository implements GameRepository {
       this.toPlateAppearance(row as PlateAppearanceRow),
     );
 
+    const { data: isRows, error: isErr } = await this.supabase
+      .from("inning_scores")
+      .select("*")
+      .eq("game_id", id)
+      .order("inning_number", { ascending: true });
+    if (isErr) {
+      throw new Error(`イニングスコアの取得に失敗しました: ${isErr.message}`);
+    }
+    const inningScores = (isRows ?? []).map((row) => {
+      const r = row as InningScoreRow;
+      return new InningScore(r.inning_number, r.our_score, r.opponent_score);
+    });
+
     return Game.restore({
       id: gameRow.id as GameId,
       teamId: gameRow.team_id as TeamId,
@@ -214,6 +266,8 @@ export class GameSupabaseRepository implements GameRepository {
       opponentName: gameRow.opponent_name,
       battingOrder,
       plateAppearances,
+      inningScores,
+      batsFirst: gameRow.bats_first ?? true,
     });
   }
 

@@ -140,7 +140,11 @@ export function PlateAppearanceModal({
             <SubButtons
               label="安打の種類"
               value={hitType}
-              onChange={setHitType}
+              onChange={(v) => {
+                setHitType(v);
+                // 本塁打は必ず生還するので得点をデフォルトON（手動でOFFも可）
+                if (v === "homerun") setRunScored(true);
+              }}
               options={[
                 ["single", "単打"],
                 ["double", "二塁打"],
