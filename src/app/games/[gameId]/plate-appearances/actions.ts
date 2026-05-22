@@ -17,10 +17,6 @@ import {
 } from "@/contexts/game-recording/domain/player-id";
 import type { BatResultRaw } from "@/contexts/game-recording/domain/bat-result";
 import {
-  isBattingDirection,
-  type BattingDirection,
-} from "@/contexts/game-recording/domain/batting-direction";
-import {
   isFielderPosition,
   type FielderPosition,
 } from "@/contexts/game-recording/domain/fielder-position";
@@ -34,7 +30,6 @@ export type RecordPlateAppearanceFormInput = {
   walkType?: string;
   outType?: string;
   sacrificeType?: string;
-  direction?: string;
   fielderPosition?: string;
   hadError?: boolean;
   runsBattedIn: number;
@@ -52,10 +47,6 @@ function parsePlayerKey(key: string): PlayerId {
 export async function recordPlateAppearanceAction(
   input: RecordPlateAppearanceFormInput,
 ): Promise<void> {
-  const direction: BattingDirection | null =
-    input.direction && isBattingDirection(input.direction)
-      ? input.direction
-      : null;
   const fielderPositionNum = Number(input.fielderPosition);
   const fielderPosition: FielderPosition | null =
     input.fielderPosition && isFielderPosition(fielderPositionNum)
@@ -68,7 +59,6 @@ export async function recordPlateAppearanceAction(
     walkType: input.walkType ?? null,
     outType: input.outType ?? null,
     sacrificeType: input.sacrificeType ?? null,
-    direction,
     fielderPosition,
     hadError: input.hadError ?? false,
   };

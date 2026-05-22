@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { NumberField } from "@/components/NumberField";
 import { recordPlateAppearanceAction } from "./actions";
-import { BATTING_DIRECTION_LABELS } from "@/contexts/game-recording/domain/batting-direction";
 import { FIELDER_POSITION_LABELS } from "@/contexts/game-recording/domain/fielder-position";
 
 type Category = "hit" | "walk" | "out" | "sacrifice" | "errorOnly";
@@ -34,7 +33,6 @@ export function PlateAppearanceModal({
   const [walkType, setWalkType] = useState("baseOnBalls");
   const [outType, setOutType] = useState("strikeout");
   const [sacrificeType, setSacrificeType] = useState("bunt");
-  const [direction, setDirection] = useState("");
   const [fielderPosition, setFielderPosition] = useState("");
   const [hadError, setHadError] = useState(false);
   const [inning, setInning] = useState(defaultInning);
@@ -60,11 +58,8 @@ export function PlateAppearanceModal({
           walkType: category === "walk" ? walkType : undefined,
           outType: category === "out" ? outType : undefined,
           sacrificeType: category === "sacrifice" ? sacrificeType : undefined,
-          direction:
-            category === "hit" || category === "errorOnly"
-              ? direction
-              : undefined,
           fielderPosition:
+            category === "hit" ||
             category === "out" ||
             category === "sacrifice" ||
             category === "errorOnly"
@@ -156,7 +151,10 @@ export function PlateAppearanceModal({
                 ["homerun", "本塁打"],
               ]}
             />
-            <DirectionButtons value={direction} onChange={setDirection} />
+            <PositionSelect
+              value={fielderPosition}
+              onChange={setFielderPosition}
+            />
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -225,7 +223,6 @@ export function PlateAppearanceModal({
         {/* 失策のみ */}
         {category === "errorOnly" && (
           <div className="mt-4 space-y-3">
-            <DirectionButtons value={direction} onChange={setDirection} />
             <PositionSelect
               value={fielderPosition}
               onChange={setFielderPosition}
@@ -322,38 +319,6 @@ function SubButtons({
   );
 }
 
-function DirectionButtons({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div>
-      <label className="block text-sm font-medium">打球方向（任意）</label>
-      <div className="mt-2 flex gap-2">
-        {(
-          Object.entries(BATTING_DIRECTION_LABELS) as [string, string][]
-        ).map(([v, l]) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => onChange(value === v ? "" : v)}
-            className={`rounded-md border px-3 py-1.5 text-sm ${
-              value === v
-                ? "border-primary bg-primary text-primary-foreground"
-                : "bg-background hover:bg-accent"
-            }`}
-          >
-            {l}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function PositionSelect({
   value,
   onChange,
@@ -363,7 +328,7 @@ function PositionSelect({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium">守備位置（任意）</label>
+      <label className="block text-sm font-medium">打球位置（任意）</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

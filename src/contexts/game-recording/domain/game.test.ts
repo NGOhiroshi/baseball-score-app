@@ -14,7 +14,7 @@ const bob = memberPlayerId("bob" as MemberId);
 const single: BatResult = {
   category: "hit",
   hitType: "single",
-  direction: null,
+  fielderPosition: null,
   hadError: false,
 };
 

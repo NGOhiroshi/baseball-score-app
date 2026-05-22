@@ -8,7 +8,7 @@ const alice = memberPlayerId("alice" as MemberId);
 const single: BatResult = {
   category: "hit",
   hitType: "single",
-  direction: null,
+  fielderPosition: null,
   hadError: false,
 };
 

@@ -5,7 +5,6 @@ import type { TeamId } from "@/contexts/team-management/domain/team-id";
 import { BattingOrderEntry } from "../domain/batting-order-entry";
 import type { BattingOrderEntryId } from "../domain/batting-order-entry-id";
 import type { BatResult } from "../domain/bat-result";
-import { isBattingDirection } from "../domain/batting-direction";
 import {
   isFielderPosition,
   type FielderPosition,
@@ -492,7 +491,7 @@ function batResultToColumns(result: BatResult): BatResultColumns {
       return {
         ...base,
         hit_type: result.hitType,
-        batting_direction: result.direction,
+        fielder_position: result.fielderPosition,
         had_error: result.hadError,
       };
     case "walk":
@@ -515,10 +514,6 @@ function batResultToColumns(result: BatResult): BatResultColumns {
 }
 
 function columnsToBatResult(row: PlateAppearanceRow): BatResult {
-  const direction =
-    row.batting_direction && isBattingDirection(row.batting_direction)
-      ? row.batting_direction
-      : null;
   const fielderPosition =
     row.fielder_position !== null && isFielderPosition(row.fielder_position)
       ? row.fielder_position
@@ -529,7 +524,7 @@ function columnsToBatResult(row: PlateAppearanceRow): BatResult {
       return {
         category: "hit",
         hitType: row.hit_type as "single" | "double" | "triple" | "homerun",
-        direction,
+        fielderPosition,
         hadError: row.had_error,
       };
     case "walk":

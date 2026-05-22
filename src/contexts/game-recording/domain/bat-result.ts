@@ -1,5 +1,5 @@
 import {
-  BATTING_DIRECTION_LABELS,
+  directionFromFielderPosition,
   type BattingDirection,
 } from "./batting-direction";
 import {
@@ -23,7 +23,7 @@ export type BatResult =
   | {
       category: "hit";
       hitType: HitType;
-      direction: BattingDirection | null;
+      fielderPosition: FielderPosition | null; // 打球位置（守備位置）
       hadError: boolean; // 「安打 + 失策」の同時記録を表すフラグ
     }
   | { category: "walk"; walkType: WalkType }
@@ -63,6 +63,25 @@ export function isHomeRun(r: BatResult): boolean {
   return r.category === "hit" && r.hitType === "homerun";
 }
 
+/** 打球位置（守備位置）を持つ場合に返す（四死球・三振などは null） */
+export function fielderPositionOf(r: BatResult): FielderPosition | null {
+  switch (r.category) {
+    case "hit":
+    case "out":
+    case "sacrifice":
+    case "errorOnly":
+      return r.fielderPosition;
+    case "walk":
+      return null;
+  }
+}
+
+/** 打球方向（打球位置から導出）。位置が未記録なら null */
+export function battingDirectionOf(r: BatResult): BattingDirection | null {
+  const pos = fielderPositionOf(r);
+  return pos === null ? null : directionFromFielderPosition(pos);
+}
+
 // =========================================================================
 // ファクトリ（境界での検証）
 //   フォーム等の生入力から BatResult を構築。不正な組み合わせは例外。
@@ -84,7 +103,6 @@ export type BatResultRaw = {
   walkType?: string | null;
   outType?: string | null;
   sacrificeType?: string | null;
-  direction?: BattingDirection | null;
   fielderPosition?: FielderPosition | null;
   hadError?: boolean;
 };
@@ -98,7 +116,7 @@ export function buildBatResult(raw: BatResultRaw): BatResult {
       return {
         category: "hit",
         hitType: raw.hitType as HitType,
-        direction: raw.direction ?? null,
+        fielderPosition: raw.fielderPosition ?? null,
         hadError: raw.hadError ?? false,
       };
     }
@@ -170,9 +188,11 @@ const SACRIFICE_LABELS: Record<SacrificeType, string> = {
 export function batResultLabel(r: BatResult): string {
   switch (r.category) {
     case "hit": {
-      const dir = r.direction ? BATTING_DIRECTION_LABELS[r.direction] : "";
+      const pos = r.fielderPosition
+        ? FIELDER_POSITION_LABELS[r.fielderPosition]
+        : "";
       const err = r.hadError ? "(失策)" : "";
-      return `${dir}${HIT_LABELS[r.hitType]}${err}`;
+      return `${pos}${HIT_LABELS[r.hitType]}${err}`;
     }
     case "walk":
       return WALK_LABELS[r.walkType];

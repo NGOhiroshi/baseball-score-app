@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  battingDirectionOf,
   buildBatResult,
   countsAsAtBat,
   countsAsHit,
@@ -10,19 +11,19 @@ import {
 const hitSingle: BatResult = {
   category: "hit",
   hitType: "single",
-  direction: null,
+  fielderPosition: null,
   hadError: false,
 };
 const hitWithError: BatResult = {
   category: "hit",
   hitType: "single",
-  direction: null,
+  fielderPosition: null,
   hadError: true,
 };
 const homerun: BatResult = {
   category: "hit",
   hitType: "homerun",
-  direction: "center",
+  fielderPosition: 8,
   hadError: false,
 };
 const walk: BatResult = { category: "walk", walkType: "baseOnBalls" };
@@ -72,12 +73,27 @@ describe("isHomeRun", () => {
   });
 });
 
+describe("battingDirectionOf（打球位置から方向を導出）", () => {
+  it("外野（7/8/9）は左/中/右", () => {
+    expect(battingDirectionOf({ category: "hit", hitType: "single", fielderPosition: 7, hadError: false })).toBe("left");
+    expect(battingDirectionOf({ category: "hit", hitType: "single", fielderPosition: 8, hadError: false })).toBe("center");
+    expect(battingDirectionOf({ category: "hit", hitType: "single", fielderPosition: 9, hadError: false })).toBe("right");
+  });
+  it("内野（1〜6）は内野", () => {
+    expect(battingDirectionOf({ category: "out", outType: "groundOut", fielderPosition: 5 })).toBe("infield");
+  });
+  it("位置未記録・四死球は null", () => {
+    expect(battingDirectionOf(hitSingle)).toBeNull();
+    expect(battingDirectionOf(walk)).toBeNull();
+  });
+});
+
 describe("buildBatResult（生入力からの構築・検証）", () => {
   it("正常な安打を構築する", () => {
     const r = buildBatResult({
       category: "hit",
       hitType: "double",
-      direction: "left",
+      fielderPosition: 7,
       hadError: false,
     });
     expect(r.category).toBe("hit");
