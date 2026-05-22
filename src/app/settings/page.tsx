@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
+import { ChangePassword } from "./ChangePassword";
+import { LogoutButton } from "./LogoutButton";
 
 export default function SettingsPage() {
   return (
@@ -20,6 +22,12 @@ export default function SettingsPage() {
       <section className="mt-6 space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">表示</h2>
         <ThemeToggle />
+      </section>
+
+      <section className="mt-8 space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground">アカウント</h2>
+        <ChangePassword />
+        <LogoutButton />
       </section>
     </main>
   );
