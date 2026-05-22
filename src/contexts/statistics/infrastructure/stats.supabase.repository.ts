@@ -6,6 +6,7 @@ import { TeamStats } from "../domain/team-stats";
 import type {
   GameResultView,
   GameOutcome,
+  PlayerSprayRow,
   StatsRepository,
 } from "../domain/stats.repository";
 
@@ -158,6 +159,40 @@ export class StatsSupabaseRepository implements StatsRepository {
         ourScore: r.our_score,
         oppScore: r.opp_score,
         outcome: r.result as GameOutcome,
+      };
+    });
+  }
+
+  async listPlayerSprayByYear(teamId: TeamId): Promise<PlayerSprayRow[]> {
+    const { data, error } = await this.supabase
+      .from("v_player_spray_by_year")
+      .select(
+        "player_id, year, left_count, center_count, right_count, infield_count, strikeouts, plate_appearances",
+      )
+      .eq("team_id", teamId);
+    if (error) {
+      throw new Error(`打球分布の取得に失敗しました: ${error.message}`);
+    }
+    return (data ?? []).map((row) => {
+      const r = row as {
+        player_id: string;
+        year: number;
+        left_count: number;
+        center_count: number;
+        right_count: number;
+        infield_count: number;
+        strikeouts: number;
+        plate_appearances: number;
+      };
+      return {
+        playerId: r.player_id,
+        year: r.year,
+        left: r.left_count,
+        center: r.center_count,
+        right: r.right_count,
+        infield: r.infield_count,
+        strikeouts: r.strikeouts,
+        plateAppearances: r.plate_appearances,
       };
     });
   }

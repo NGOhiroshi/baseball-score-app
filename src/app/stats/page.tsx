@@ -2,10 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { GetTeamStatsUseCase } from "@/contexts/statistics/application/get-team-stats.usecase";
 import { GetTeamSummaryUseCase } from "@/contexts/statistics/application/get-team-summary.usecase";
+import { GetPlayerSprayUseCase } from "@/contexts/statistics/application/get-player-spray.usecase";
 import { StatsSupabaseRepository } from "@/contexts/statistics/infrastructure/stats.supabase.repository";
 import { TeamStats } from "@/contexts/statistics/domain/team-stats";
 import type { BattingStats } from "@/contexts/statistics/domain/batting-stats";
 import type { PitchingStats } from "@/contexts/statistics/domain/pitching-stats";
+import { playerEpithet } from "@/contexts/statistics/domain/player-epithet";
 import type { GameResultView } from "@/contexts/statistics/domain/stats.repository";
 import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-id";
 import { GetTeamSettingsUseCase } from "@/contexts/team-management/application/get-team-settings.usecase";
@@ -15,7 +17,9 @@ import {
   StatsTabs,
   type BattingRow,
   type PitchingRow,
+  type PlayerDetail,
 } from "./StatsTabs";
+import { SprayBars, type SprayCounts } from "./SprayBars";
 
 export default async function StatsPage({
   searchParams,
@@ -29,17 +33,22 @@ export default async function StatsPage({
   const statsRepo = new StatsSupabaseRepository(supabase);
 
   const teamSettingsRepo = new TeamSettingsSupabaseRepository(supabase);
-  const [teamRes, statsRes, currentMember, teamSettings] = await Promise.all([
-    new GetTeamSummaryUseCase(statsRepo).execute(SMITH_BROTHERS_TEAM_ID),
-    new GetTeamStatsUseCase(statsRepo).execute({
-      teamId: SMITH_BROTHERS_TEAM_ID,
-      year,
-    }),
-    getCurrentMember(),
-    new GetTeamSettingsUseCase(teamSettingsRepo).execute(SMITH_BROTHERS_TEAM_ID),
-  ]);
+  const [teamRes, statsRes, currentMember, teamSettings, sprayRes] =
+    await Promise.all([
+      new GetTeamSummaryUseCase(statsRepo).execute(SMITH_BROTHERS_TEAM_ID),
+      new GetTeamStatsUseCase(statsRepo).execute({
+        teamId: SMITH_BROTHERS_TEAM_ID,
+        year,
+      }),
+      getCurrentMember(),
+      new GetTeamSettingsUseCase(teamSettingsRepo).execute(
+        SMITH_BROTHERS_TEAM_ID,
+      ),
+      new GetPlayerSprayUseCase(statsRepo).execute(SMITH_BROTHERS_TEAM_ID),
+    ]);
   if (!teamRes.ok) throw teamRes.error;
   if (!statsRes.ok) throw statsRes.error;
+  if (!sprayRes.ok) throw sprayRes.error;
 
   const { byYear: teamByYear, recent } = teamRes.value;
   const years = [...teamByYear.map((s) => s.year as number)].sort(
@@ -56,6 +65,77 @@ export default async function StatsPage({
   const myPitching = myId
     ? pitching.find((s) => s.playerId === myId)
     : undefined;
+
+  // 打球分布を対象期間（通算 or 年度）で選手ごとに集約
+  type Aggregate = SprayCounts & { strikeouts: number };
+  const sprayByPlayer = new Map<string, Aggregate>();
+  for (const r of sprayRes.value) {
+    if (year !== null && r.year !== year) continue;
+    const cur = sprayByPlayer.get(r.playerId) ?? {
+      left: 0,
+      center: 0,
+      right: 0,
+      infield: 0,
+      strikeouts: 0,
+    };
+    cur.left += r.left;
+    cur.center += r.center;
+    cur.right += r.right;
+    cur.infield += r.infield;
+    cur.strikeouts += r.strikeouts;
+    sprayByPlayer.set(r.playerId, cur);
+  }
+  const emptySpray: SprayCounts = { left: 0, center: 0, right: 0, infield: 0 };
+
+  // 個人成績テーブルの展開時に出す異名＋打球バーをマップに集約
+  const playerIds = new Set<string>([
+    ...batting.map((b) => b.playerId),
+    ...pitching.map((p) => p.playerId),
+  ]);
+  const playerDetails: Record<string, PlayerDetail> = {};
+  for (const pid of playerIds) {
+    const b = batting.find((s) => s.playerId === pid);
+    const p = pitching.find((s) => s.playerId === pid);
+    const agg = sprayByPlayer.get(pid) ?? { ...emptySpray, strikeouts: 0 };
+    const spray: SprayCounts = {
+      left: agg.left,
+      center: agg.center,
+      right: agg.right,
+      infield: agg.infield,
+    };
+    playerDetails[pid] = {
+      epithet: playerEpithet({
+        playerId: pid,
+        batting: b,
+        pitching: p,
+        spray,
+        battingStrikeouts: agg.strikeouts,
+      }),
+      spray,
+    };
+  }
+
+  const mySprayAgg = myId
+    ? (sprayByPlayer.get(myId) ?? { ...emptySpray, strikeouts: 0 })
+    : null;
+  const mySpray: SprayCounts | null = mySprayAgg
+    ? {
+        left: mySprayAgg.left,
+        center: mySprayAgg.center,
+        right: mySprayAgg.right,
+        infield: mySprayAgg.infield,
+      }
+    : null;
+  const myEpithet =
+    myId && (myBatting || myPitching)
+      ? playerEpithet({
+          playerId: myId,
+          batting: myBatting,
+          pitching: myPitching,
+          spray: mySpray ?? emptySpray,
+          battingStrikeouts: mySprayAgg?.strikeouts ?? 0,
+        })
+      : null;
 
   // 規定打席・規定投球回は対象期間の試合数に比例（通算なら全試合、年度ならその年）
   const minPA = Math.ceil(teamSelected.games * teamSettings.qualifiedPaPerGame);
@@ -124,8 +204,15 @@ export default async function StatsPage({
       {currentMember && (
         <section className="mt-6">
           <div className="rounded-xl border bg-gradient-to-br from-primary/10 to-card p-5">
-            <div className="text-sm font-semibold text-muted-foreground">
-              ⚾ {currentMember.name} さんの成績（{periodLabel}）
+            <div className="flex flex-wrap items-baseline gap-2">
+              <div className="text-sm font-semibold text-muted-foreground">
+                ⚾ {currentMember.name} さんの成績（{periodLabel}）
+              </div>
+              {myEpithet && (
+                <span className="rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+                  {myEpithet}
+                </span>
+              )}
             </div>
             {myBatting || myPitching ? (
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -165,6 +252,14 @@ export default async function StatsPage({
               <p className="mt-2 text-sm text-muted-foreground">
                 {periodLabel}の記録はまだありません。次の試合で記録を残しましょう！
               </p>
+            )}
+            {mySpray && (myBatting || myPitching) && (
+              <div className="mt-4 max-w-md">
+                <div className="text-xs text-muted-foreground">打球傾向</div>
+                <div className="mt-1">
+                  <SprayBars spray={mySpray} />
+                </div>
+              </div>
             )}
           </div>
         </section>
@@ -275,10 +370,14 @@ export default async function StatsPage({
       {/* 個人成績 */}
       <section className="mt-8">
         <h2 className="text-lg font-semibold">個人成績</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          選手の行をタップすると、その選手の異名と打球傾向が見られます。
+        </p>
         <StatsTabs
           batting={battingRows}
           pitching={pitchingRows}
           highlightPlayerId={myId ?? undefined}
+          details={playerDetails}
         />
       </section>
     </main>

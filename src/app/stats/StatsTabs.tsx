@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { SprayBars, type SprayCounts } from "./SprayBars";
+
+export type PlayerDetail = { epithet: string; spray: SprayCounts };
 
 export type BattingRow = {
   playerId: string;
@@ -91,10 +94,12 @@ export function StatsTabs({
   batting,
   pitching,
   highlightPlayerId,
+  details,
 }: {
   batting: BattingRow[];
   pitching: PitchingRow[];
   highlightPlayerId?: string;
+  details?: Record<string, PlayerDetail>;
 }) {
   const [tab, setTab] = useState<"batting" | "pitching">("batting");
 
@@ -120,6 +125,7 @@ export function StatsTabs({
             columns={battingColumns}
             rowId={(r) => r.playerId}
             highlightId={highlightPlayerId}
+            details={details}
             initialSort={{ key: "avg", dir: "desc" }}
             emptyMessage="集計対象の打席記録がありません。"
           />
@@ -129,6 +135,7 @@ export function StatsTabs({
             columns={pitchingColumns}
             rowId={(r) => r.playerId}
             highlightId={highlightPlayerId}
+            details={details}
             initialSort={{ key: "era", dir: "asc" }}
             emptyMessage="集計対象の投手記録がありません。"
           />
@@ -143,6 +150,7 @@ function SortableTable<T>({
   columns,
   rowId,
   highlightId,
+  details,
   initialSort,
   emptyMessage,
 }: {
@@ -150,10 +158,12 @@ function SortableTable<T>({
   columns: Column<T>[];
   rowId: (r: T) => string;
   highlightId?: string;
+  details?: Record<string, PlayerDetail>;
   initialSort: { key: string; dir: SortDir };
   emptyMessage: string;
 }) {
   const [sort, setSort] = useState(initialSort);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
@@ -200,25 +210,35 @@ function SortableTable<T>({
         </thead>
         <tbody>
           {sorted.map((r, i) => {
-            const isMe = highlightId !== undefined && rowId(r) === highlightId;
+            const id = rowId(r);
+            const isMe = highlightId !== undefined && id === highlightId;
+            const detail = details?.[id];
+            const isExpanded = expanded === id;
             return (
-              <tr
+              <ExpandableRow
                 key={i}
-                className={`border-b ${
-                  isMe ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""
-                }`}
-              >
-                {columns.map((c) => (
-                  <td
-                    key={c.key}
-                    className={`px-2 py-2 ${
-                      c.align === "left" ? "text-left font-medium" : "text-right"
-                    }`}
-                  >
-                    {c.render(r, { isMe })}
-                  </td>
-                ))}
-              </tr>
+                isMe={isMe}
+                detail={detail}
+                isExpanded={isExpanded}
+                colSpan={columns.length}
+                onToggle={() => setExpanded(isExpanded ? null : id)}
+                row={
+                  <>
+                    {columns.map((c) => (
+                      <td
+                        key={c.key}
+                        className={`px-2 py-2 ${
+                          c.align === "left"
+                            ? "text-left font-medium"
+                            : "text-right"
+                        }`}
+                      >
+                        {c.render(r, { isMe })}
+                      </td>
+                    ))}
+                  </>
+                }
+              />
             );
           })}
         </tbody>
@@ -238,6 +258,53 @@ function compare(a: SortValue, b: SortValue, dir: SortDir): number {
     return dir === "asc" ? a.localeCompare(b) : b.localeCompare(a);
   }
   return dir === "asc" ? (a as number) - (b as number) : (b as number) - (a as number);
+}
+
+function ExpandableRow({
+  isMe,
+  detail,
+  isExpanded,
+  colSpan,
+  onToggle,
+  row,
+}: {
+  isMe: boolean;
+  detail?: PlayerDetail;
+  isExpanded: boolean;
+  colSpan: number;
+  onToggle: () => void;
+  row: ReactNode;
+}) {
+  return (
+    <>
+      <tr
+        onClick={detail ? onToggle : undefined}
+        aria-expanded={detail ? isExpanded : undefined}
+        className={`border-b ${detail ? "cursor-pointer hover:bg-accent/40" : ""} ${
+          isMe ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""
+        }`}
+      >
+        {row}
+      </tr>
+      {detail && isExpanded && (
+        <tr className="border-b bg-muted/30">
+          <td colSpan={colSpan} className="px-3 py-3 text-left">
+            <div className="flex items-baseline gap-2">
+              <span className="rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
+                {detail.epithet}
+              </span>
+            </div>
+            <div className="mt-2 max-w-sm">
+              <div className="text-xs text-muted-foreground">打球傾向</div>
+              <div className="mt-1">
+                <SprayBars spray={detail.spray} />
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
 }
 
 function PlayerName({

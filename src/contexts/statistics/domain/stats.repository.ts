@@ -12,6 +12,18 @@ export type GameResultView = {
   outcome: GameOutcome;
 };
 
+/** 選手×年度の打球分布（方向別本数）+ 三振数。打球傾向・異名の算出に使う。 */
+export type PlayerSprayRow = {
+  playerId: string;
+  year: number;
+  left: number;
+  center: number;
+  right: number;
+  infield: number;
+  strikeouts: number;
+  plateAppearances: number;
+};
+
 /**
  * 成績集計の読み取りリポジトリ（インターフェース）。
  *
@@ -27,4 +39,7 @@ export interface StatsRepository {
 
   /** 直近の試合結果（スコア入力済みのみ、新しい順、最大 limit 件）。直近フォーム表示用。 */
   listRecentResults(teamId: TeamId, limit: number): Promise<GameResultView[]>;
+
+  /** 選手×年度の打球分布（1行=1選手1年度）。通算・年度はこの配列から導出する。 */
+  listPlayerSprayByYear(teamId: TeamId): Promise<PlayerSprayRow[]>;
 }
