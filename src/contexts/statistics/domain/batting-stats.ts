@@ -10,6 +10,8 @@
  */
 export class BattingStats {
   constructor(
+    /** 選手の識別子（member_id または guest_player_id）。本人ハイライト用 */
+    readonly playerId: string,
     readonly playerName: string,
     readonly isGuest: boolean,
     readonly plateAppearances: number,

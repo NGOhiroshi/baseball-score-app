@@ -6,6 +6,8 @@
  */
 export class PitchingStats {
   constructor(
+    /** 選手の識別子（member_id または guest_player_id）。本人ハイライト用 */
+    readonly playerId: string,
     readonly playerName: string,
     readonly isGuest: boolean,
     /** 完投イニング数（総アウト ÷ 3） */

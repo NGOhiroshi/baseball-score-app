@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 
 export type BattingRow = {
+  playerId: string;
   playerName: string;
   isGuest: boolean;
   average: number | null;
@@ -16,6 +17,7 @@ export type BattingRow = {
 };
 
 export type PitchingRow = {
+  playerId: string;
   playerName: string;
   isGuest: boolean;
   era: number | null;
@@ -31,13 +33,14 @@ export type PitchingRow = {
 
 type SortValue = number | string | null;
 type SortDir = "asc" | "desc";
+type RenderCtx = { isMe: boolean };
 
 type Column<T> = {
   key: string;
   label: string;
   align: "left" | "right";
   sortValue: (r: T) => SortValue;
-  render: (r: T) => ReactNode;
+  render: (r: T, ctx: RenderCtx) => ReactNode;
 };
 
 const battingColumns: Column<BattingRow>[] = [
@@ -46,7 +49,9 @@ const battingColumns: Column<BattingRow>[] = [
     label: "選手",
     align: "left",
     sortValue: (r) => r.playerName,
-    render: (r) => <PlayerName name={r.playerName} isGuest={r.isGuest} />,
+    render: (r, ctx) => (
+      <PlayerName name={r.playerName} isGuest={r.isGuest} isMe={ctx.isMe} />
+    ),
   },
   { key: "avg", label: "打率", align: "right", sortValue: (r) => r.average, render: (r) => <b>{r.averageLabel}</b> },
   { key: "pa", label: "打席", align: "right", sortValue: (r) => r.plateAppearances, render: (r) => r.plateAppearances },
@@ -63,7 +68,9 @@ const pitchingColumns: Column<PitchingRow>[] = [
     label: "選手",
     align: "left",
     sortValue: (r) => r.playerName,
-    render: (r) => <PlayerName name={r.playerName} isGuest={r.isGuest} />,
+    render: (r, ctx) => (
+      <PlayerName name={r.playerName} isGuest={r.isGuest} isMe={ctx.isMe} />
+    ),
   },
   { key: "era", label: "防御率", align: "right", sortValue: (r) => r.era, render: (r) => <b>{r.eraLabel}</b> },
   { key: "ip", label: "投球回", align: "right", sortValue: (r) => r.totalOuts, render: (r) => r.ipLabel },
@@ -78,19 +85,21 @@ const pitchingColumns: Column<PitchingRow>[] = [
  * チーム成績の表示（Client Component）。
  *
  * 打撃/投手をタブで切り替え、列ヘッダのタップで昇順/降順ソートする。
- * 並び替えはユーザー操作で動的に変わるので、ここ（UI）が責務を持つ。
+ * ログイン中の本人の行はハイライトして「自分ごと」に見えるようにする。
  */
 export function StatsTabs({
   batting,
   pitching,
+  highlightPlayerId,
 }: {
   batting: BattingRow[];
   pitching: PitchingRow[];
+  highlightPlayerId?: string;
 }) {
   const [tab, setTab] = useState<"batting" | "pitching">("batting");
 
   return (
-    <div className="mt-6">
+    <div className="mt-4">
       <div className="flex gap-2 border-b">
         <TabButton
           label="打撃成績"
@@ -109,6 +118,8 @@ export function StatsTabs({
           <SortableTable
             rows={batting}
             columns={battingColumns}
+            rowId={(r) => r.playerId}
+            highlightId={highlightPlayerId}
             initialSort={{ key: "avg", dir: "desc" }}
             emptyMessage="集計対象の打席記録がありません。"
           />
@@ -116,6 +127,8 @@ export function StatsTabs({
           <SortableTable
             rows={pitching}
             columns={pitchingColumns}
+            rowId={(r) => r.playerId}
+            highlightId={highlightPlayerId}
             initialSort={{ key: "era", dir: "asc" }}
             emptyMessage="集計対象の投手記録がありません。"
           />
@@ -128,11 +141,15 @@ export function StatsTabs({
 function SortableTable<T>({
   rows,
   columns,
+  rowId,
+  highlightId,
   initialSort,
   emptyMessage,
 }: {
   rows: T[];
   columns: Column<T>[];
+  rowId: (r: T) => string;
+  highlightId?: string;
   initialSort: { key: string; dir: SortDir };
   emptyMessage: string;
 }) {
@@ -182,20 +199,28 @@ function SortableTable<T>({
           </tr>
         </thead>
         <tbody>
-          {sorted.map((r, i) => (
-            <tr key={i} className="border-b">
-              {columns.map((c) => (
-                <td
-                  key={c.key}
-                  className={`px-2 py-2 ${
-                    c.align === "left" ? "text-left font-medium" : "text-right"
-                  }`}
-                >
-                  {c.render(r)}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {sorted.map((r, i) => {
+            const isMe = highlightId !== undefined && rowId(r) === highlightId;
+            return (
+              <tr
+                key={i}
+                className={`border-b ${
+                  isMe ? "bg-primary/10 ring-1 ring-inset ring-primary/30" : ""
+                }`}
+              >
+                {columns.map((c) => (
+                  <td
+                    key={c.key}
+                    className={`px-2 py-2 ${
+                      c.align === "left" ? "text-left font-medium" : "text-right"
+                    }`}
+                  >
+                    {c.render(r, { isMe })}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -215,10 +240,23 @@ function compare(a: SortValue, b: SortValue, dir: SortDir): number {
   return dir === "asc" ? (a as number) - (b as number) : (b as number) - (a as number);
 }
 
-function PlayerName({ name, isGuest }: { name: string; isGuest: boolean }) {
+function PlayerName({
+  name,
+  isGuest,
+  isMe,
+}: {
+  name: string;
+  isGuest: boolean;
+  isMe: boolean;
+}) {
   return (
     <>
       {name}
+      {isMe && (
+        <span className="ml-1.5 rounded bg-primary px-1 py-0.5 text-[10px] font-normal text-primary-foreground">
+          あなた
+        </span>
+      )}
       {isGuest && (
         <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-[10px] font-normal text-muted-foreground">
           助
