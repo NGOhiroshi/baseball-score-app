@@ -24,6 +24,10 @@ export class Member {
     readonly photoUrl: string | null,
     readonly role: MemberRole,
     readonly joinedAt: Date,
+    /** ログイン用メール（未発行なら null） */
+    readonly email: string | null,
+    /** 紐づく認証アカウント（auth.users.id）。ログイン未発行なら null */
+    readonly authUserId: string | null,
   ) {
     if (name.trim() === "") {
       throw new Error("メンバー名は必須です");
@@ -31,6 +35,11 @@ export class Member {
     if (name.length > MAX_NAME_LENGTH) {
       throw new Error(`メンバー名は${MAX_NAME_LENGTH}文字以内で入力してください`);
     }
+  }
+
+  /** ログインアカウントを持つか（管理者が発行済みか） */
+  get hasAccount(): boolean {
+    return this.authUserId !== null;
   }
 
   /** 新規メンバー登録時に使う。ID と joinedAt はここで採番。 */
@@ -47,6 +56,8 @@ export class Member {
       params.photoUrl ?? null,
       params.role,
       new Date(),
+      null,
+      null,
     );
   }
 
@@ -58,6 +69,8 @@ export class Member {
     photoUrl: string | null;
     role: MemberRole;
     joinedAt: Date;
+    email: string | null;
+    authUserId: string | null;
   }): Member {
     return new Member(
       params.id,
@@ -66,6 +79,25 @@ export class Member {
       params.photoUrl,
       params.role,
       params.joinedAt,
+      params.email,
+      params.authUserId,
+    );
+  }
+
+  /**
+   * ログインアカウントを紐付けた新しいインスタンスを返す（不変更新）。
+   * 管理者がメンバーにメール＋認証アカウントを発行したときに使う。
+   */
+  withAccount(email: string, authUserId: string): Member {
+    return new Member(
+      this.id,
+      this.teamId,
+      this.name,
+      this.photoUrl,
+      this.role,
+      this.joinedAt,
+      email,
+      authUserId,
     );
   }
 }

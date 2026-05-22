@@ -22,4 +22,7 @@ export interface MemberRepository {
 
   /** ID で単一メンバーを取得。見つからなければ null */
   findById(id: MemberId): Promise<Member | null>;
+
+  /** 認証アカウント（auth.users.id）で単一メンバーを取得。見つからなければ null */
+  findByAuthUserId(authUserId: string): Promise<Member | null>;
 }

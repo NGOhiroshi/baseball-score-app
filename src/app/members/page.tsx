@@ -3,18 +3,32 @@ import { createClient } from "@/lib/supabase/server";
 import { ListMembersUseCase } from "@/contexts/team-management/application/list-members.usecase";
 import { MemberSupabaseRepository } from "@/contexts/team-management/infrastructure/member.supabase.repository";
 import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-id";
+import { getCurrentMember } from "@/lib/auth/current-member";
+import { MembersList, type MemberRowView } from "./MembersList";
 
 /**
  * メンバー一覧画面（UC-TEAM-5）。
  *
- * Server Component として実装し、サーバー側でユースケースを直接呼ぶ。
- * クライアントへ流れるのは表示用データだけ（軽量）。
+ * Server Component でユースケースを呼び、表示用データだけをクライアントへ渡す。
+ * 管理者にはアカウント発行UIを出すため、ログイン中メンバーのロールも取得する。
  */
 export default async function MembersPage() {
   const supabase = await createClient();
   const repo = new MemberSupabaseRepository(supabase);
-  const usecase = new ListMembersUseCase(repo);
-  const members = await usecase.execute(SMITH_BROTHERS_TEAM_ID);
+  const [members, currentMember] = await Promise.all([
+    new ListMembersUseCase(repo).execute(SMITH_BROTHERS_TEAM_ID),
+    getCurrentMember(),
+  ]);
+  const isAdmin = currentMember?.role === "admin";
+
+  const rows: MemberRowView[] = members.map((m) => ({
+    id: m.id,
+    name: m.name,
+    roleLabel: m.role === "admin" ? "管理者" : "一般メンバー",
+    hasAccount: m.hasAccount,
+    email: m.email,
+    joinedAt: m.joinedAt.toLocaleDateString("ja-JP"),
+  }));
 
   return (
     <main className="container py-8">
@@ -28,29 +42,12 @@ export default async function MembersPage() {
         </Link>
       </div>
 
-      {members.length === 0 ? (
+      {rows.length === 0 ? (
         <p className="mt-8 text-center text-sm text-muted-foreground">
           まだメンバーがいません。「+ 新規」から登録してください。
         </p>
       ) : (
-        <ul className="mt-6 space-y-2">
-          {members.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center justify-between rounded-md border bg-card p-4"
-            >
-              <div>
-                <div className="font-medium">{m.name}</div>
-                <div className="text-xs text-muted-foreground">
-                  {m.role === "admin" ? "管理者" : "一般メンバー"}
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                登録: {m.joinedAt.toLocaleDateString("ja-JP")}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <MembersList rows={rows} isAdmin={isAdmin} />
       )}
     </main>
   );
