@@ -25,10 +25,13 @@ export default function HomePage() {
           <div className="text-2xl">⚾</div>
           <div className="mt-2 text-sm font-medium">試合</div>
         </Link>
-        <div className="rounded-lg border bg-card p-6 text-center opacity-50">
+        <Link
+          href="/stats"
+          className="rounded-lg border bg-card p-6 text-center transition-colors hover:bg-accent"
+        >
           <div className="text-2xl">📊</div>
-          <div className="mt-2 text-sm font-medium">成績（未実装）</div>
-        </div>
+          <div className="mt-2 text-sm font-medium">成績</div>
+        </Link>
         <div className="rounded-lg border bg-card p-6 text-center opacity-50">
           <div className="text-2xl">⚙️</div>
           <div className="mt-2 text-sm font-medium">設定（未実装）</div>
