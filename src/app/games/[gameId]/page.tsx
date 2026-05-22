@@ -24,6 +24,11 @@ import {
   type PlayerRow,
 } from "./plate-appearances/ScoreSheet";
 import { ScoreBoard } from "./inning-scores/ScoreBoard";
+import {
+  PitchingSection,
+  type PitchingView,
+  type PitcherOption,
+} from "./pitching/PitchingSection";
 
 /**
  * 試合詳細画面（UC-GAME-6）。
@@ -85,6 +90,45 @@ export default async function GameDetailPage({
     };
   });
 
+  // 投手の選択肢は打順登録選手（集約の不変条件と一致）
+  const pitcherOptions: PitcherOption[] = players.map((p) => ({
+    key: p.playerKey,
+    name: p.name,
+  }));
+
+  const resolveName = (playerId: (typeof game.battingOrder)[number]["playerId"]) => {
+    const memberId = asMemberId(playerId);
+    const guestId = asGuestPlayerId(playerId);
+    return memberId
+      ? (memberNameById.get(memberId) ?? "(不明なメンバー)")
+      : guestId
+        ? (guestNameById.get(guestId) ?? "(不明な助っ人)")
+        : "(不明)";
+  };
+
+  // 投手記録のビューモデル（合計値はドメインから導出して受け渡す）
+  const pitchingViews: PitchingView[] = game.pitchingAppearances.map((pa) => ({
+    id: pa.id,
+    pitcherName: resolveName(pa.pitcherId),
+    isGuest: asGuestPlayerId(pa.pitcherId) !== null,
+    enteredAtInning: pa.enteredAtInning,
+    innings: pa.inningRecords.map((r) => ({
+      inningNumber: r.inningNumber,
+      outsRecorded: r.outsRecorded,
+      runsAllowed: r.runsAllowed,
+      earnedRuns: r.earnedRuns,
+      hitsAllowed: r.hitsAllowed,
+      strikeouts: r.strikeouts,
+      walksAllowed: r.walksAllowed,
+    })),
+    ip: pa.inningsPitched().toString(),
+    totalRuns: pa.totalRunsAllowed(),
+    totalEarned: pa.totalEarnedRuns(),
+    totalHits: pa.totalHitsAllowed(),
+    totalK: pa.totalStrikeouts(),
+    totalBB: pa.totalWalksAllowed(),
+  }));
+
   return (
     <main className="container py-8">
       <div className="mb-4">
@@ -142,10 +186,26 @@ export default async function GameDetailPage({
         )}
       </section>
 
+      <section className="mt-6">
+        <h2 className="text-lg font-semibold">投手記録</h2>
+        {game.battingOrder.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            先に打順を登録すると投手を記録できます。
+          </p>
+        ) : (
+          <div className="mt-4">
+            <PitchingSection
+              gameId={game.id}
+              pitcherOptions={pitcherOptions}
+              appearances={pitchingViews}
+            />
+          </div>
+        )}
+      </section>
+
       <section className="mt-8 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
         <h3 className="font-semibold text-foreground">未実装の機能</h3>
         <ul className="mt-2 space-y-1">
-          <li>⏳ 投手記録（Slice 4）</li>
           <li>⏳ 成績集計（Slice 5）</li>
         </ul>
       </section>

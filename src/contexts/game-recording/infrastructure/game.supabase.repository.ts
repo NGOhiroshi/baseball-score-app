@@ -14,6 +14,9 @@ import { Game } from "../domain/game";
 import type { GameId } from "../domain/game-id";
 import type { GameRepository } from "../domain/game.repository";
 import { InningScore } from "../domain/inning-score";
+import { InningPitched } from "../domain/inning-pitched";
+import { PitchingAppearance } from "../domain/pitching-appearance";
+import type { PitchingAppearanceId } from "../domain/pitching-appearance-id";
 import { PlateAppearance } from "../domain/plate-appearance";
 import type { PlateAppearanceId } from "../domain/plate-appearance-id";
 import {
@@ -67,6 +70,26 @@ type PlateAppearanceRow = {
   fielder_position: number | null;
   runs_batted_in: number;
   run_scored: boolean;
+};
+
+type PitchingAppearanceRow = {
+  id: string;
+  game_id: string;
+  pitcher_member_id: string | null;
+  pitcher_guest_player_id: string | null;
+  entered_at_inning: number;
+};
+
+type InningPitchedRow = {
+  id: string;
+  pitching_appearance_id: string;
+  inning_number: number;
+  outs_recorded: number;
+  runs_allowed: number;
+  earned_runs: number;
+  hits_allowed: number;
+  strikeouts: number;
+  walks_allowed: number;
 };
 
 /**
@@ -183,6 +206,55 @@ export class GameSupabaseRepository implements GameRepository {
         throw new Error(`イニングスコアの保存に失敗しました: ${isInsErr.message}`);
       }
     }
+
+    // 8) pitching_appearances を全削除（inning_pitched_records は CASCADE で消える）
+    const { error: paitDelErr } = await this.supabase
+      .from("pitching_appearances")
+      .delete()
+      .eq("game_id", game.id);
+    if (paitDelErr) {
+      throw new Error(`投手記録の削除に失敗しました: ${paitDelErr.message}`);
+    }
+
+    // 9) 投手登板とイニング記録を挿入（あれば）
+    if (game.pitchingAppearances.length > 0) {
+      const appRows = game.pitchingAppearances.map((pa) => ({
+        id: pa.id,
+        game_id: game.id,
+        pitcher_member_id: asMemberId(pa.pitcherId),
+        pitcher_guest_player_id: asGuestPlayerId(pa.pitcherId),
+        entered_at_inning: pa.enteredAtInning,
+      }));
+      const { error: appInsErr } = await this.supabase
+        .from("pitching_appearances")
+        .insert(appRows);
+      if (appInsErr) {
+        throw new Error(`投手登板の保存に失敗しました: ${appInsErr.message}`);
+      }
+
+      const inningRows = game.pitchingAppearances.flatMap((pa) =>
+        pa.inningRecords.map((r) => ({
+          pitching_appearance_id: pa.id,
+          inning_number: r.inningNumber,
+          outs_recorded: r.outsRecorded,
+          runs_allowed: r.runsAllowed,
+          earned_runs: r.earnedRuns,
+          hits_allowed: r.hitsAllowed,
+          strikeouts: r.strikeouts,
+          walks_allowed: r.walksAllowed,
+        })),
+      );
+      if (inningRows.length > 0) {
+        const { error: inningInsErr } = await this.supabase
+          .from("inning_pitched_records")
+          .insert(inningRows);
+        if (inningInsErr) {
+          throw new Error(
+            `投手イニング記録の保存に失敗しました: ${inningInsErr.message}`,
+          );
+        }
+      }
+    }
   }
 
   async findAllByTeam(teamId: TeamId): Promise<Game[]> {
@@ -205,6 +277,7 @@ export class GameSupabaseRepository implements GameRepository {
         plateAppearances: [],
         inningScores: [],
         batsFirst: row.bats_first ?? true,
+        pitchingAppearances: [],
       }),
     );
   }
@@ -259,6 +332,31 @@ export class GameSupabaseRepository implements GameRepository {
       return new InningScore(r.inning_number, r.our_score, r.opponent_score);
     });
 
+    const { data: appRows, error: appErr } = await this.supabase
+      .from("pitching_appearances")
+      .select("*")
+      .eq("game_id", id)
+      .order("entered_at_inning", { ascending: true });
+    if (appErr) {
+      throw new Error(`投手登板の取得に失敗しました: ${appErr.message}`);
+    }
+    const appIds = (appRows ?? []).map((r) => (r as PitchingAppearanceRow).id);
+    let inningRows: InningPitchedRow[] = [];
+    if (appIds.length > 0) {
+      const { data, error } = await this.supabase
+        .from("inning_pitched_records")
+        .select("*")
+        .in("pitching_appearance_id", appIds)
+        .order("inning_number", { ascending: true });
+      if (error) {
+        throw new Error(`投手イニング記録の取得に失敗しました: ${error.message}`);
+      }
+      inningRows = (data ?? []) as InningPitchedRow[];
+    }
+    const pitchingAppearances = (appRows ?? []).map((row) =>
+      this.toPitchingAppearance(row as PitchingAppearanceRow, inningRows),
+    );
+
     return Game.restore({
       id: gameRow.id as GameId,
       teamId: gameRow.team_id as TeamId,
@@ -268,6 +366,45 @@ export class GameSupabaseRepository implements GameRepository {
       plateAppearances,
       inningScores,
       batsFirst: gameRow.bats_first ?? true,
+      pitchingAppearances,
+    });
+  }
+
+  private toPitchingAppearance(
+    row: PitchingAppearanceRow,
+    allInningRows: readonly InningPitchedRow[],
+  ): PitchingAppearance {
+    let pitcherId: PlayerId;
+    if (row.pitcher_member_id) {
+      pitcherId = memberPlayerId(row.pitcher_member_id as MemberId);
+    } else if (row.pitcher_guest_player_id) {
+      pitcherId = guestPlayerId(row.pitcher_guest_player_id as GuestPlayerId);
+    } else {
+      throw new Error(
+        `投手登板にメンバーも助っ人も紐づいていません: ${row.id}`,
+      );
+    }
+
+    const inningRecords = allInningRows
+      .filter((r) => r.pitching_appearance_id === row.id)
+      .map(
+        (r) =>
+          new InningPitched(
+            r.inning_number,
+            r.outs_recorded as 0 | 1 | 2 | 3,
+            r.runs_allowed,
+            r.earned_runs,
+            r.hits_allowed,
+            r.strikeouts,
+            r.walks_allowed,
+          ),
+      );
+
+    return PitchingAppearance.restore({
+      id: row.id as PitchingAppearanceId,
+      pitcherId,
+      enteredAtInning: row.entered_at_inning,
+      inningRecords,
     });
   }
 

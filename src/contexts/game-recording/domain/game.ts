@@ -2,6 +2,9 @@ import type { TeamId } from "@/contexts/team-management/domain/team-id";
 import type { BattingOrderEntry } from "./batting-order-entry";
 import { newGameId, type GameId } from "./game-id";
 import type { InningScore } from "./inning-score";
+import type { InningPitched } from "./inning-pitched";
+import type { PitchingAppearance } from "./pitching-appearance";
+import type { PitchingAppearanceId } from "./pitching-appearance-id";
 import type { PlateAppearance } from "./plate-appearance";
 import type { PlateAppearanceId } from "./plate-appearance-id";
 import { samePlayer, type PlayerId } from "./player-id";
@@ -32,6 +35,7 @@ export class Game {
     private _plateAppearances: readonly PlateAppearance[],
     private _inningScores: readonly InningScore[],
     private _batsFirst: boolean,
+    private _pitchingAppearances: readonly PitchingAppearance[],
   ) {
     if (opponentName.trim() === "") {
       throw new Error("対戦相手名は必須です");
@@ -58,6 +62,7 @@ export class Game {
       [],
       [],
       true, // デフォルトは先攻
+      [],
     );
   }
 
@@ -71,6 +76,7 @@ export class Game {
     plateAppearances: readonly PlateAppearance[];
     inningScores: readonly InningScore[];
     batsFirst: boolean;
+    pitchingAppearances: readonly PitchingAppearance[];
   }): Game {
     return new Game(
       params.id,
@@ -81,6 +87,7 @@ export class Game {
       params.plateAppearances,
       params.inningScores,
       params.batsFirst,
+      params.pitchingAppearances,
     );
   }
 
@@ -202,5 +209,44 @@ export class Game {
 
   setBatsFirst(value: boolean): void {
     this._batsFirst = value;
+  }
+
+  /** 投手登板は読み取り専用で外に公開（変更は専用メソッド経由） */
+  get pitchingAppearances(): readonly PitchingAppearance[] {
+    return this._pitchingAppearances;
+  }
+
+  /**
+   * 投手登板を追加する。
+   *
+   * 集約の不変条件:
+   *   投手も「打順に登録された選手」でなければならない
+   *   （草野球では投手＝打順に入る野手のいずれか）。
+   */
+  addPitchingAppearance(pa: PitchingAppearance): void {
+    if (!this.isPlayerInBattingOrder(pa.pitcherId)) {
+      throw new Error("投手は打順に登録された選手にのみ記録できます");
+    }
+    this._pitchingAppearances = [...this._pitchingAppearances, pa];
+  }
+
+  /** 投手登板を削除する */
+  removePitchingAppearance(id: PitchingAppearanceId): void {
+    this._pitchingAppearances = this._pitchingAppearances.filter(
+      (pa) => pa.id !== id,
+    );
+  }
+
+  /**
+   * 指定した登板のイニング記録をまるごと差し替える。
+   * イニング終了時にまとめて入力・修正する UX に対応。
+   */
+  replacePitchingInnings(
+    id: PitchingAppearanceId,
+    records: readonly InningPitched[],
+  ): void {
+    this._pitchingAppearances = this._pitchingAppearances.map((pa) =>
+      pa.id === id ? pa.withInningRecords(records) : pa,
+    );
   }
 }
