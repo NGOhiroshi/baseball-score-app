@@ -34,12 +34,14 @@ export default async function MembersPage() {
     <main className="container py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">👥 メンバー</h1>
-        <Link
-          href="/members/new"
-          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          + 新規
-        </Link>
+        {isAdmin && (
+          <Link
+            href="/members/new"
+            className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            + 新規
+          </Link>
+        )}
       </div>
 
       {rows.length === 0 ? (
