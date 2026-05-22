@@ -8,17 +8,14 @@ import type { BattingStats } from "@/contexts/statistics/domain/batting-stats";
 import type { PitchingStats } from "@/contexts/statistics/domain/pitching-stats";
 import type { GameResultView } from "@/contexts/statistics/domain/stats.repository";
 import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-id";
+import { GetTeamSettingsUseCase } from "@/contexts/team-management/application/get-team-settings.usecase";
+import { TeamSettingsSupabaseRepository } from "@/contexts/team-management/infrastructure/team-settings.supabase.repository";
 import { getCurrentMember } from "@/lib/auth/current-member";
 import {
   StatsTabs,
   type BattingRow,
   type PitchingRow,
 } from "./StatsTabs";
-
-// 規定打席・規定投球回は固定値ではなく「試合数に比例」させる（プロ標準）。
-// 係数をここで一元管理しているので、チームの実情に合わせて柔軟に変えられる。
-const QUALIFIED_PA_PER_GAME = 3.1; // 規定打席 = 試合数 × 3.1
-const QUALIFIED_INNINGS_PER_GAME = 1; // 規定投球回 = 試合数 × 1.0
 
 export default async function StatsPage({
   searchParams,
@@ -31,13 +28,15 @@ export default async function StatsPage({
   const supabase = await createClient();
   const statsRepo = new StatsSupabaseRepository(supabase);
 
-  const [teamRes, statsRes, currentMember] = await Promise.all([
+  const teamSettingsRepo = new TeamSettingsSupabaseRepository(supabase);
+  const [teamRes, statsRes, currentMember, teamSettings] = await Promise.all([
     new GetTeamSummaryUseCase(statsRepo).execute(SMITH_BROTHERS_TEAM_ID),
     new GetTeamStatsUseCase(statsRepo).execute({
       teamId: SMITH_BROTHERS_TEAM_ID,
       year,
     }),
     getCurrentMember(),
+    new GetTeamSettingsUseCase(teamSettingsRepo).execute(SMITH_BROTHERS_TEAM_ID),
   ]);
   if (!teamRes.ok) throw teamRes.error;
   if (!statsRes.ok) throw statsRes.error;
@@ -59,8 +58,10 @@ export default async function StatsPage({
     : undefined;
 
   // 規定打席・規定投球回は対象期間の試合数に比例（通算なら全試合、年度ならその年）
-  const minPA = Math.ceil(teamSelected.games * QUALIFIED_PA_PER_GAME);
-  const minInnings = Math.ceil(teamSelected.games * QUALIFIED_INNINGS_PER_GAME);
+  const minPA = Math.ceil(teamSelected.games * teamSettings.qualifiedPaPerGame);
+  const minInnings = Math.ceil(
+    teamSelected.games * teamSettings.qualifiedInningsPerGame,
+  );
   const leaders = computeLeaders(batting, pitching, minPA, minInnings * 3);
 
   const battingRows: BattingRow[] = batting.map((s) => ({

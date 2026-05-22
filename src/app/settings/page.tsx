@@ -1,9 +1,27 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentMember } from "@/lib/auth/current-member";
+import { GetTeamSettingsUseCase } from "@/contexts/team-management/application/get-team-settings.usecase";
+import { TeamSettingsSupabaseRepository } from "@/contexts/team-management/infrastructure/team-settings.supabase.repository";
+import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-id";
 import { ThemeToggle } from "./ThemeToggle";
 import { ChangePassword } from "./ChangePassword";
 import { LogoutButton } from "./LogoutButton";
+import { TeamSettingsForm } from "./TeamSettingsForm";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const member = await getCurrentMember();
+  const isAdmin = member?.role === "admin";
+
+  let teamSettings = null;
+  if (isAdmin) {
+    const supabase = await createClient();
+    const repo = new TeamSettingsSupabaseRepository(supabase);
+    teamSettings = await new GetTeamSettingsUseCase(repo).execute(
+      SMITH_BROTHERS_TEAM_ID,
+    );
+  }
+
   return (
     <main className="container py-8">
       <div className="mb-4">
@@ -23,6 +41,18 @@ export default function SettingsPage() {
         <h2 className="text-sm font-semibold text-muted-foreground">表示</h2>
         <ThemeToggle />
       </section>
+
+      {isAdmin && teamSettings && (
+        <section className="mt-8 space-y-3">
+          <h2 className="text-sm font-semibold text-muted-foreground">
+            チーム設定（管理者）
+          </h2>
+          <TeamSettingsForm
+            initialPaPerGame={teamSettings.qualifiedPaPerGame}
+            initialInningsPerGame={teamSettings.qualifiedInningsPerGame}
+          />
+        </section>
+      )}
 
       <section className="mt-8 space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">アカウント</h2>
