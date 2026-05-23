@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCurrentMember } from "@/lib/auth/current-member";
+import { ImportSection } from "./ImportSection";
 
 /**
  * エクスポート / インポート画面。
@@ -66,9 +67,7 @@ export default async function ExportImportPage() {
           インポート（管理者）
         </h2>
         {isAdmin ? (
-          <div className="mt-3 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
-            次のスライスで「メンバーCSV」と「試合データZIP」の取り込みUIを実装します。
-          </div>
+          <ImportSection />
         ) : (
           <p className="mt-3 text-sm text-muted-foreground">
             この操作は管理者のみ実行できます。
