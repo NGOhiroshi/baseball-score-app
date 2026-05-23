@@ -76,7 +76,7 @@ export function NumberField({
       }}
       onFocus={(e) => e.target.select()}
       onBlur={(e) => commit(e.target.value)}
-      className={`rounded-md border border-input bg-background px-2 py-1.5 text-center text-sm ${className}`}
+      className={`rounded-md border border-input bg-background px-2 py-1.5 text-center text-sm text-foreground ${className}`}
     />
   );
 
@@ -109,7 +109,7 @@ function StepBtn({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background text-lg font-medium leading-none hover:bg-accent disabled:opacity-40"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background text-lg font-medium leading-none text-foreground hover:bg-accent disabled:opacity-40"
     >
       {label}
     </button>
