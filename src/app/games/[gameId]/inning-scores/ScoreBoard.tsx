@@ -108,7 +108,7 @@ export function ScoreBoard({
           <button
             type="button"
             onClick={startEdit}
-            className="rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+            className="rounded-md border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
           >
             {initialScores.length === 0 ? "+ スコア入力" : "✏️ 編集"}
           </button>
@@ -117,7 +117,7 @@ export function ScoreBoard({
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
+              className="rounded-md border bg-background px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
             >
               キャンセル
             </button>
@@ -139,7 +139,7 @@ export function ScoreBoard({
         <button
           type="button"
           onClick={handleToggleBatsFirst}
-          className="rounded-md border bg-background px-3 py-1 font-medium hover:bg-accent"
+          className="rounded-md border bg-background px-3 py-1 font-medium text-foreground hover:bg-accent"
           title="タップで先攻/後攻を切り替え"
         >
           {optimisticBatsFirst ? "先攻（表）" : "後攻（裏）"}
