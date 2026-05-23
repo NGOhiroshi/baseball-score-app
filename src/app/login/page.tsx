@@ -1,43 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useActionState } from "react";
+import { loginAction, type LoginState } from "./actions";
 
 /**
  * ログイン画面（Email + パスワード）。
  *
  * 通常ログインではメールを送らない（無料枠のメールレート制限を避けるため）。
  * アカウントは管理者が発行する招待制で、自己サインアップは提供しない。
+ *
+ * 認証本体は Server Action（actions.ts）で行う。Set-Cookie とリダイレクトを
+ * 同じレスポンスで処理するためで、ブラウザクライアント直叩きで起きがちな
+ * Cookie レースを避ける。
  */
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const INITIAL_STATE: LoginState = { error: null };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setIsPending(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setError(
-        error.message.toLowerCase().includes("invalid login credentials")
-          ? "メールアドレスまたはパスワードが違います。"
-          : error.message,
-      );
-      setIsPending(false);
-      return;
-    }
-    router.push("/");
-    router.refresh();
-  };
+export default function LoginPage() {
+  const [state, formAction, isPending] = useActionState(
+    loginAction,
+    INITIAL_STATE,
+  );
 
   return (
     <main className="container flex min-h-screen items-center justify-center py-8">
@@ -47,7 +29,7 @@ export default function LoginPage() {
           メールアドレスとパスワードでログイン
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form action={formAction} className="mt-6 space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium">
               Email
@@ -58,8 +40,6 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               placeholder="you@example.com"
             />
@@ -74,14 +54,12 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             />
           </div>
-          {error && (
+          {state.error && (
             <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
-              {error}
+              {state.error}
             </p>
           )}
           <button
