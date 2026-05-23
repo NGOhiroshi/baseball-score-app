@@ -13,7 +13,7 @@
 
 | 役割 | 主体 | できること | 実装 |
 |---|---|---|---|
-| superadmin | プラットフォーム所有者（長尾さん） | 全テーブル全操作。チーム作成（Phase2） | `platform_admins` テーブル |
+| superadmin | プラットフォーム所有者 | 全テーブル全操作。チーム作成（Phase2） | `platform_admins` テーブル |
 | team admin | チーム管理者 | メンバー追加・アカウント発行・成績規定設定・試合データ取込 | `members.role = 'admin'` |
 | regular | チーム所属メンバー | 試合記録の閲覧・入力 | `members.role = 'regular'` |
 | ゲスト（未ログイン） | 任意の第三者 | **何もできない**（middlewareで /login へ強制） | RLS + middleware |
