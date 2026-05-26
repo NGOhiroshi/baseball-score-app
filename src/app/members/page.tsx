@@ -28,6 +28,8 @@ export default async function MembersPage() {
     hasAccount: m.hasAccount,
     email: m.email,
     joinedAt: m.joinedAt.toLocaleDateString("ja-JP"),
+    jerseyNumberMain: m.jerseyNumberMain,
+    jerseyNumberSub: m.jerseyNumberSub,
   }));
 
   return (

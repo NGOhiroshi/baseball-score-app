@@ -72,6 +72,39 @@ export default function NewMemberPage() {
           </p>
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="jerseyNumberMain" className="block text-sm font-medium">
+              背番号メイン（任意）
+            </label>
+            <input
+              id="jerseyNumberMain"
+              name="jerseyNumberMain"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={999}
+              placeholder="例: 7"
+              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label htmlFor="jerseyNumberSub" className="block text-sm font-medium">
+              背番号サブ（任意）
+            </label>
+            <input
+              id="jerseyNumberSub"
+              name="jerseyNumberSub"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={999}
+              placeholder="別ユニフォーム用"
+              className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+
         <div className="flex gap-2 pt-4">
           <Link
             href="/members"

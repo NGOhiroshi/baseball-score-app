@@ -50,6 +50,19 @@ export async function importMembersAction(
     role: string;
     joined_at: string;
     email: string | null;
+    jersey_number_main: number | null;
+    jersey_number_sub: number | null;
+  };
+
+  const parseJersey = (raw: string | undefined): number | null => {
+    if (raw === undefined) return null;
+    const s = raw.trim();
+    if (s === "") return null;
+    const n = Number(s);
+    if (!Number.isFinite(n)) {
+      throw new Error(`不正な背番号: ${raw}`);
+    }
+    return n;
   };
   const payloads: MemberPayload[] = [];
   const errors: ImportError[] = [];
@@ -70,7 +83,9 @@ export async function importMembersAction(
       if (Number.isNaN(joinedAt.getTime())) {
         throw new Error(`不正な joined_at: ${joinedAtStr}`);
       }
-      // ドメインで名前長など検証（不正なら例外）
+      const jerseyMain = parseJersey(rec["jersey_number_main"]);
+      const jerseySub = parseJersey(rec["jersey_number_sub"]);
+      // ドメインで名前長・背番号範囲など検証（不正なら例外）
       const m = Member.restore({
         id,
         teamId: SMITH_BROTHERS_TEAM_ID,
@@ -80,6 +95,8 @@ export async function importMembersAction(
         joinedAt,
         email,
         authUserId: null,
+        jerseyNumberMain: jerseyMain,
+        jerseyNumberSub: jerseySub,
       });
       // 既存行の auth_user_id を壊さないため、ペイロードから除外して upsert
       payloads.push({
@@ -90,6 +107,8 @@ export async function importMembersAction(
         role: m.role,
         joined_at: toDateOnly(m.joinedAt),
         email: m.email,
+        jersey_number_main: m.jerseyNumberMain,
+        jersey_number_sub: m.jerseyNumberSub,
       });
     } catch (e) {
       errors.push({

@@ -10,6 +10,8 @@ export type RegisterMemberInput = {
   name: string;
   role: MemberRole;
   photoUrl?: string | null;
+  jerseyNumberMain?: number | null;
+  jerseyNumberSub?: number | null;
 };
 
 /**
@@ -33,6 +35,8 @@ export class RegisterMemberUseCase {
         name: input.name,
         role: input.role,
         photoUrl: input.photoUrl ?? null,
+        jerseyNumberMain: input.jerseyNumberMain ?? null,
+        jerseyNumberSub: input.jerseyNumberSub ?? null,
       });
       await this.memberRepo.save(member);
       return Ok(member.id);

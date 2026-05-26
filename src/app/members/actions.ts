@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RegisterMemberUseCase } from "@/contexts/team-management/application/register-member.usecase";
 import { LinkMemberAccountUseCase } from "@/contexts/team-management/application/link-member-account.usecase";
+import { UpdateMemberJerseyNumbersUseCase } from "@/contexts/team-management/application/update-member-jersey-numbers.usecase";
 import { MemberSupabaseRepository } from "@/contexts/team-management/infrastructure/member.supabase.repository";
 import { SMITH_BROTHERS_TEAM_ID } from "@/contexts/team-management/domain/team-id";
 import type { MemberId } from "@/contexts/team-management/domain/member-id";
@@ -30,6 +31,8 @@ export async function registerMemberAction(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "");
   const role = String(formData.get("role") ?? "");
   const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
+  const jerseyNumberMain = parseOptionalInt(formData.get("jerseyNumberMain"));
+  const jerseyNumberSub = parseOptionalInt(formData.get("jerseyNumberSub"));
 
   if (!isMemberRole(role)) {
     throw new Error(`不正な権限が指定されました: ${role}`);
@@ -44,6 +47,8 @@ export async function registerMemberAction(formData: FormData): Promise<void> {
     name,
     role,
     photoUrl,
+    jerseyNumberMain,
+    jerseyNumberSub,
   });
 
   if (!result.ok) {
@@ -53,6 +58,34 @@ export async function registerMemberAction(formData: FormData): Promise<void> {
   // 一覧ページのキャッシュを破棄して最新の状態を取得させる
   revalidatePath("/members");
   redirect("/members");
+}
+
+function parseOptionalInt(v: FormDataEntryValue | null): number | null {
+  if (v === null) return null;
+  const s = String(v).trim();
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** 既存メンバーの背番号（メイン/サブ）を更新する Server Action（管理者のみ） */
+export async function updateMemberJerseyNumbersAction(
+  memberId: string,
+  jerseyNumberMain: number | null,
+  jerseyNumberSub: number | null,
+): Promise<void> {
+  await requireAdmin();
+  const supabase = await createClient();
+  const repo = new MemberSupabaseRepository(supabase);
+  const res = await new UpdateMemberJerseyNumbersUseCase(repo).execute({
+    memberId: memberId as MemberId,
+    jerseyNumberMain,
+    jerseyNumberSub,
+  });
+  if (!res.ok) {
+    throw res.error;
+  }
+  revalidatePath("/members");
 }
 
 export type BulkIssueItem = { memberId: string; email: string };

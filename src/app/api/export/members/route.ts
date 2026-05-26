@@ -11,6 +11,8 @@ const COLUMNS = [
   "joined_at",
   "email",
   "photo_url",
+  "jersey_number_main",
+  "jersey_number_sub",
 ] as const;
 
 /** メンバー一覧の CSV エクスポート */

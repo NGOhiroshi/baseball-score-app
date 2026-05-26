@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import {
   issueAccountsBulkAction,
   resetMemberPasswordAction,
+  updateMemberJerseyNumbersAction,
   type BulkIssueResult,
 } from "./actions";
 
@@ -14,6 +15,8 @@ export type MemberRowView = {
   hasAccount: boolean;
   email: string | null;
   joinedAt: string;
+  jerseyNumberMain: number | null;
+  jerseyNumberSub: number | null;
 };
 
 // 仮パスワード生成（共有しやすい英数字。紛らわしい文字 0/O/1/l/I は除外）。
@@ -127,7 +130,20 @@ export function MembersList({
                   />
                 )}
                 <div className="min-w-0">
-                  <div className="font-medium">{m.name}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{m.name}</span>
+                    {m.jerseyNumberMain !== null && (
+                      <span className="rounded bg-primary/15 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-primary">
+                        #{m.jerseyNumberMain}
+                      </span>
+                    )}
+                    {m.jerseyNumberSub !== null && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+                        #{m.jerseyNumberSub}
+                        <span className="ml-0.5 opacity-60">sub</span>
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {m.roleLabel}
                     {m.hasAccount ? (
@@ -154,6 +170,14 @@ export function MembersList({
 
             {isAdmin && m.hasAccount && (
               <ResetPassword memberId={m.id} memberName={m.name} />
+            )}
+            {isAdmin && (
+              <JerseyNumberEdit
+                memberId={m.id}
+                memberName={m.name}
+                initialMain={m.jerseyNumberMain}
+                initialSub={m.jerseyNumberSub}
+              />
             )}
           </li>
         ))}
@@ -312,6 +336,130 @@ function BulkResultBox({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function JerseyNumberEdit({
+  memberId,
+  memberName,
+  initialMain,
+  initialSub,
+}: {
+  memberId: string;
+  memberName: string;
+  initialMain: number | null;
+  initialSub: number | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [main, setMain] = useState(
+    initialMain === null ? "" : String(initialMain),
+  );
+  const [sub, setSub] = useState(
+    initialSub === null ? "" : String(initialSub),
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const parseNum = (s: string): number | null => {
+    const t = s.trim();
+    if (t === "") return null;
+    const n = Number(t);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const handleSave = () => {
+    setError(null);
+    const m = parseNum(main);
+    const s = parseNum(sub);
+    if (
+      (m !== null && (!Number.isInteger(m) || m < 0 || m > 999)) ||
+      (s !== null && (!Number.isInteger(s) || s < 0 || s > 999))
+    ) {
+      setError("背番号は0〜999の整数で入力してください。");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await updateMemberJerseyNumbersAction(memberId, m, s);
+        setOpen(false);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    });
+  };
+
+  if (!open) {
+    return (
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+        >
+          背番号編集
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 rounded-md border bg-card p-3">
+      <div className="text-xs font-medium">{memberName} の背番号</div>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <label className="text-xs">
+          <span className="block text-[11px] text-muted-foreground">メイン</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            value={main}
+            onChange={(e) => setMain(e.target.value)}
+            className="mt-1 w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </label>
+        <label className="text-xs">
+          <span className="block text-[11px] text-muted-foreground">サブ</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={999}
+            value={sub}
+            onChange={(e) => setSub(e.target.value)}
+            className="mt-1 w-20 rounded-md border border-input bg-background px-2 py-1 text-sm"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isPending}
+          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+        >
+          {isPending ? "保存中..." : "保存"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setError(null);
+            setMain(initialMain === null ? "" : String(initialMain));
+            setSub(initialSub === null ? "" : String(initialSub));
+          }}
+          className="rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+        >
+          キャンセル
+        </button>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        空欄で「未設定」になります。0〜999の整数。
+      </p>
+      {error && (
+        <p className="mt-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

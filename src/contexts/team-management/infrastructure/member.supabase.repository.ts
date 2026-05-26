@@ -17,6 +17,8 @@ type MemberRow = {
   joined_at: string; // YYYY-MM-DD
   email: string | null;
   auth_user_id: string | null;
+  jersey_number_main: number | null;
+  jersey_number_sub: number | null;
 };
 
 /**
@@ -44,6 +46,8 @@ export class MemberSupabaseRepository implements MemberRepository {
       joined_at: toDateOnly(member.joinedAt),
       email: member.email,
       auth_user_id: member.authUserId,
+      jersey_number_main: member.jerseyNumberMain,
+      jersey_number_sub: member.jerseyNumberSub,
     });
     if (error) {
       throw new Error(`メンバーの保存に失敗しました: ${error.message}`);
@@ -100,6 +104,8 @@ export class MemberSupabaseRepository implements MemberRepository {
       joinedAt: new Date(row.joined_at),
       email: row.email,
       authUserId: row.auth_user_id,
+      jerseyNumberMain: row.jersey_number_main,
+      jerseyNumberSub: row.jersey_number_sub,
     });
   }
 }

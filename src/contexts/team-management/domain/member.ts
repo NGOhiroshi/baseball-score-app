@@ -3,12 +3,22 @@ import type { MemberRole } from "./member-role";
 import type { TeamId } from "./team-id";
 
 const MAX_NAME_LENGTH = 50;
+const MAX_JERSEY_NUMBER = 999;
+
+function validateJerseyNumber(n: number | null, label: string): void {
+  if (n === null) return;
+  if (!Number.isInteger(n) || n < 0 || n > MAX_JERSEY_NUMBER) {
+    throw new Error(
+      `${label}は0以上${MAX_JERSEY_NUMBER}以下の整数で入力してください（受信: ${n}）`,
+    );
+  }
+}
 
 /**
  * メンバーエンティティ。
  *
  * - ID を持ち、ライフサイクルを通じて同一性が保たれる → エンティティ
- * - 不変条件（名前は空でない、長さ50以下）はコンストラクタで強制
+ * - 不変条件（名前は空でない、長さ50以下、背番号は0〜999）はコンストラクタで強制
  * - 新規登録は static factory `register()` 経由（ID/joinedAt の生成を内包）
  * - 既存データの復元は `restore()` 経由（リポジトリから読み出すときに使う）
  *
@@ -28,6 +38,10 @@ export class Member {
     readonly email: string | null,
     /** 紐づく認証アカウント（auth.users.id）。ログイン未発行なら null */
     readonly authUserId: string | null,
+    /** メインの背番号（未設定なら null） */
+    readonly jerseyNumberMain: number | null,
+    /** サブの背番号（別ユニフォーム用、未設定なら null） */
+    readonly jerseyNumberSub: number | null,
   ) {
     if (name.trim() === "") {
       throw new Error("メンバー名は必須です");
@@ -35,6 +49,8 @@ export class Member {
     if (name.length > MAX_NAME_LENGTH) {
       throw new Error(`メンバー名は${MAX_NAME_LENGTH}文字以内で入力してください`);
     }
+    validateJerseyNumber(jerseyNumberMain, "メイン背番号");
+    validateJerseyNumber(jerseyNumberSub, "サブ背番号");
   }
 
   /** ログインアカウントを持つか（管理者が発行済みか） */
@@ -48,6 +64,8 @@ export class Member {
     name: string;
     role: MemberRole;
     photoUrl?: string | null;
+    jerseyNumberMain?: number | null;
+    jerseyNumberSub?: number | null;
   }): Member {
     return new Member(
       newMemberId(),
@@ -58,6 +76,8 @@ export class Member {
       new Date(),
       null,
       null,
+      params.jerseyNumberMain ?? null,
+      params.jerseyNumberSub ?? null,
     );
   }
 
@@ -71,6 +91,8 @@ export class Member {
     joinedAt: Date;
     email: string | null;
     authUserId: string | null;
+    jerseyNumberMain: number | null;
+    jerseyNumberSub: number | null;
   }): Member {
     return new Member(
       params.id,
@@ -81,6 +103,8 @@ export class Member {
       params.joinedAt,
       params.email,
       params.authUserId,
+      params.jerseyNumberMain,
+      params.jerseyNumberSub,
     );
   }
 
@@ -98,6 +122,27 @@ export class Member {
       this.joinedAt,
       email,
       authUserId,
+      this.jerseyNumberMain,
+      this.jerseyNumberSub,
+    );
+  }
+
+  /**
+   * 背番号（メイン/サブ）を差し替えた新しいインスタンスを返す（不変更新）。
+   * 既存メンバーへの番号付与・変更に使う。
+   */
+  withJerseyNumbers(main: number | null, sub: number | null): Member {
+    return new Member(
+      this.id,
+      this.teamId,
+      this.name,
+      this.photoUrl,
+      this.role,
+      this.joinedAt,
+      this.email,
+      this.authUserId,
+      main,
+      sub,
     );
   }
 }

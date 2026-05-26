@@ -61,6 +61,8 @@ function MembersImport() {
         <span className="font-mono">role</span>（admin/regular、既定 regular）、
         <span className="font-mono">email</span>、
         <span className="font-mono">photo_url</span>、
+        <span className="font-mono">jersey_number_main</span>、
+        <span className="font-mono">jersey_number_sub</span>、
         <span className="font-mono">id</span>、
         <span className="font-mono">joined_at</span>（任意）。
         既存 id があれば更新（auth_user_id は保護）、無ければ新規発番。
