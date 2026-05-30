@@ -78,6 +78,7 @@ DELETE FROM games WHERE id = 'GAME_UUID';
 -- 期間まとめて消す
 DELETE FROM games WHERE game_date BETWEEN '2026-04-01' AND '2026-05-31';
 ```
+- **全試合を一括クリアする**（テスト→本番移行時、シーズン終了の片付け等）: [supabase/scripts/wipe-game-data.sql](../supabase/scripts/wipe-game-data.sql) を SQL Editor で実行。members は残り、games 配下が全消去される。実行前に必ず `/export-import` でバックアップを取得すること。
 
 ### 3.5 メンバーを退会させる
 - 試合データは残したいので **行は消さない**。代わりに:
