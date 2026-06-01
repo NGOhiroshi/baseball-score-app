@@ -20,7 +20,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # pnpm 11.1.3 が Node >=22.13 を要求するため 22 に固定
+          node-version: 22
           cache: pnpm
 
       - name: Install dependencies
@@ -30,7 +31,8 @@ jobs:
         run: pnpm test:coverage
 
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        # SonarQube Cloud UI が提示する SHA に固定（公式推奨）
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
