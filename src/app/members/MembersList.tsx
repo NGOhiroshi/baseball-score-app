@@ -20,21 +20,22 @@ export type MemberRowView = {
 };
 
 // 仮パスワード生成（共有しやすい英数字。紛らわしい文字 0/O/1/l/I は除外）。
-// crypto.randomUUID はセキュアコンテキスト限定なので、非HTTPS（LAN IP アクセス等）
-// でも使える getRandomValues を優先し、無ければ Math.random にフォールバックする。
+// crypto.getRandomValues は Web Crypto 仕様上、非セキュアコンテキスト
+// （HTTP・LAN IP アクセス等）でも利用可。実用上常に存在するため
+// Math.random フォールバックは持たない（暗号論的でない乱数を仮パス生成に
+// 使うのを構造的に避ける）。
 function genTempPassword(): string {
+  if (typeof crypto === "undefined" || !crypto.getRandomValues) {
+    throw new Error(
+      "セキュアな乱数生成器（crypto.getRandomValues）が利用できません",
+    );
+  }
   const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const len = 12;
+  const buf = new Uint32Array(len);
+  crypto.getRandomValues(buf);
   const out: string[] = [];
-  const c = typeof crypto !== "undefined" ? crypto : undefined;
-  if (c?.getRandomValues) {
-    const buf = new Uint32Array(len);
-    c.getRandomValues(buf);
-    for (let i = 0; i < len; i++) out.push(chars[buf[i] % chars.length]);
-  } else {
-    for (let i = 0; i < len; i++)
-      out.push(chars[Math.floor(Math.random() * chars.length)]);
-  }
+  for (let i = 0; i < len; i++) out.push(chars[buf[i] % chars.length]);
   return out.join("");
 }
 

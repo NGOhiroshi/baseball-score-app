@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { NumberField } from "@/components/NumberField";
 import { recordPlateAppearanceAction } from "./actions";
 import { FIELDER_POSITION_LABELS } from "@/contexts/game-recording/domain/fielder-position";
@@ -41,6 +41,15 @@ export function PlateAppearanceModal({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Escape キーで閉じる（モーダルのキーボードアクセシビリティ）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const handleSubmit = () => {
     if (!category) {
       setError("打席結果のカテゴリを選択してください");
@@ -77,14 +86,21 @@ export function PlateAppearanceModal({
   };
 
   return (
+    // 背景クリックで閉じる UX を、キーボードアクセシブルな形で実装する:
+    //   - role="dialog" + aria-modal で支援技術にモーダルと伝える
+    //   - onMouseDown でターゲットが backdrop 自身のときだけ閉じる
+    //     （内側にイベントが届かないので stopPropagation 不要）
+    //   - Escape は useEffect 内のグローバルリスナーで処理（上記）
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="打席結果の入力"
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-xl bg-background p-5 shadow-lg sm:rounded-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-xl bg-background p-5 shadow-lg sm:rounded-xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{playerName} の打席</h2>
           <button

@@ -68,6 +68,23 @@ function parseOptionalInt(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * メール形式の最低限チェック（バックトラックする regex を避けるため
+ * 単純な文字列操作で線形に判定する）。
+ *   - 空・空白を含まない
+ *   - "@" がちょうど1つ、両側に1文字以上
+ *   - ドメイン側に "." が1つ以上、両端ではない
+ * 厳密な妥当性は Supabase 側の createUser が最終判定する。
+ */
+function isValidEmailFormat(s: string): boolean {
+  if (!s || /\s/.test(s)) return false;
+  const at = s.indexOf("@");
+  if (at < 1 || at !== s.lastIndexOf("@")) return false;
+  const domain = s.slice(at + 1);
+  const dot = domain.indexOf(".");
+  return dot >= 1 && dot < domain.length - 1;
+}
+
 /** 既存メンバーの背番号（メイン/サブ）を更新する Server Action（管理者のみ） */
 export async function updateMemberJerseyNumbersAction(
   memberId: string,
@@ -126,7 +143,7 @@ export async function issueAccountsBulkAction(
   for (const item of items) {
     const email = item.email.trim().toLowerCase();
     try {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!isValidEmailFormat(email)) {
         throw new Error("メールアドレスの形式が正しくありません");
       }
       const { data, error } = await admin.auth.admin.createUser({
