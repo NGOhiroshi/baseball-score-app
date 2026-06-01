@@ -97,6 +97,7 @@ infrastructure/ Supabase 実装（リポジトリの具象）
 | [08-operations.md](docs/08-operations.md) | 本番運用ランブック |
 | [09-phase-2-plan.md](docs/09-phase-2-plan.md) | マルチテナント化（Phase 2）の計画 |
 | [10-ddd-learning-outline.md](docs/10-ddd-learning-outline.md) | DDD学習コンテンツの章立て |
+| [11-sonarqube-guide.md](docs/11-sonarqube-guide.md) | SonarQube 導入ガイド（Cloud / GitLab セルフホスト / Rancher Desktop） |
 
 `docs/private/` は `.gitignore` 済み（運用者固有のメモ置き場）。
 
